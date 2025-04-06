@@ -412,13 +412,14 @@ def build_system():
     # Node: MetaAgent
     # Description: Meta Agent
     def meta_agent_function(state: Dict[str, Any]) -> Dict[str, Any]:  
-        llm = LargeLanguageModel(temperature=0.2, wrapper="blablador", model_name="2 - Llama 3.3 70B instruct")
+        llm = LargeLanguageModel(temperature=0.2, wrapper="blablador", model_name="alias-fast-experimental")
         context_length = 8*2 # even
         messages = state.get("messages", [])
+        iteration = len([msg for msg in messages if isinstance(msg, AIMessage)])
         initial_messages, current_messages = messages[:2], messages[2:]
         last_messages = current_messages[-context_length:] if len(current_messages) >= context_length else current_messages
     
-        code_message = "Current Code:\n" + materialize_system(target_system, output_dir=None)
+        code_message = f"(Iteration {iteration}) Current Code:\n" + materialize_system(target_system, output_dir=None)
     
         full_messages = [SystemMessage(content=system_prompts.meta_agent)] + initial_messages + last_messages + [HumanMessage(content=code_message)]
         response = llm.invoke(full_messages)
