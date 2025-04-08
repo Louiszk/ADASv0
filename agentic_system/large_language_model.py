@@ -21,7 +21,7 @@ def execute_tool_calls(response):
             try:
                 result = LargeLanguageModel.available_tools[tool_name].invoke(tool_args)
                 tool_messages.append(ToolMessage(
-                    content=str(result),
+                    content=str(result) if result else f"Tool {tool_name} executed successfully.",
                     tool_call_id=tool_id,
                     name=tool_name
                 ))
@@ -34,6 +34,7 @@ def execute_tool_calls(response):
                     name=tool_name
                 ))
                 tool_results[tool_name] = error_message
+                break
                 
     return tool_messages, tool_results
 
@@ -99,12 +100,16 @@ class LargeLanguageModel:
 
     def __init__(self, temperature=0.4, wrapper = "openai", model_name="gpt-4o-mini"):
         self.model = get_model(wrapper, model_name, temperature)
+        self.wrapper = wrapper
 
     def bind_tools(self, tool_names, parallel_tool_calls=True):
         if tool_names:
             tool_objects = [LargeLanguageModel.available_tools[tool_name] for tool_name in tool_names if tool_name in LargeLanguageModel.available_tools]
             if tool_objects:
-                self.model = self.model.bind_tools(tool_objects, parallel_tool_calls=parallel_tool_calls)
+                if self.wrapper=="google":
+                    self.model = self.model.bind_tools(tool_objects)
+                else:
+                    self.model = self.model.bind_tools(tool_objects, parallel_tool_calls=parallel_tool_calls)
         return self.model
 
     def invoke(self, input):

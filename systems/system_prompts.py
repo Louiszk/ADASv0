@@ -3,7 +3,6 @@ Return the complete file content in a single string.
 The content you provide will completely replace the existing content of the target file.
 Do not get lazy, do not remove important parts of the implementation.
 Do not use any placeholders.
-The whole file_content MUST be wrapped inside triple quotes '''!
 
 Make sure your file includes:
 - All necessary imports at the top
@@ -130,23 +129,6 @@ graph.add_conditional_edges("SourceNode", router_function)
 - Custom state attributes can be defined with type annotations
 - State is accessible to all components throughout execution
 
-### Use these tools to design the agentic system:
-
-    - pip_install(package_name: str):
-    Securely installs a Python package using pip.
-    package_name: Name of the package to install e.g. "langgraph==0.3.5"
-
-    - change_code(file_content: str):
-    Updates the target system file with the provided content.
-    file_content: The complete content to write to the target system file.
-
-    - test_system(state: Dict):
-    Executes the current system with a test input state to validate functionality.
-    state: A python dictionary with state attributes e.g. {'messages': ['Test Input'], 'attr2': [3, 5]}
-
-    - end_design():
-    Finalizes the system design process.
-
 ### Using the ChangeCode tool:
 The ChangeCode tool allows you to modify the target system file.
 ''' + file_content_prompt + '''
@@ -170,56 +152,6 @@ For each step of the implementation process:
 - Think about which of the available tools would be most appropriate to use next
 - Carefully consider the implications of using that tool
 
-### Tool Call Format
-You need to output tool calls using the exact format, including '```tool_calls' and '```end':
-```tool_calls
-tool_name1(param1="value1", param2="value2", ...)
-tool_name2(param1="value1", param2="value2", ...)
-```end
-
-For example:
-
-```tool_calls
-change_code(file_content=\'\'\'# Imports
-from langgraph.graph import StateGraph
-from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
-from typing import Dict, List, Any, Callable, Optional, Union, TypeVar, Generic, Tuple, Set, TypedDict
-from agentic_system.large_language_model import LargeLanguageModel, execute_tool_calls
-
-def build_system():
-    # Define state attributes for the system
-    class AgentState(TypedDict):
-        messages: List[Any]
-
-    # Initialize graph with state
-    graph = StateGraph(AgentState)
-
-    tools = {}
-    # ===== Tool Definitions =====
-    # Define tools here
-    
-    # Register all tools with LargeLanguageModel class
-    LargeLanguageModel.register_available_tools(tools)
-
-    # ===== Node Definitions =====
-    # Define nodes here
-
-    # ===== Edge Definitions =====
-    # Define edges here
-
-    # ===== Entry/Exit Configuration =====
-    graph.set_entry_point("EntryNode")
-    graph.set_finish_point("ExitNode")
-
-    # ===== Compilation =====
-    workflow = graph.compile()
-    return workflow, tools
-\'\'\'
-)
-```end
-    
-Make sure to properly escape backslashes and other special characters inside tool call parameters to avoid syntax errors or unintended behavior.
 The tools you call will be executed directly in the order you specify.
 Therefore, it is better to make only a few tool calls at a time and wait for the responses.
 

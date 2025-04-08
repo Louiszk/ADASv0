@@ -72,7 +72,7 @@ def main():
         processed_msg_ids = set()
        
         print("Streaming meta system execution...")
-        for output in workflow.stream(inputs, config={"recursion_limit": 60}):
+        for output in workflow.stream(inputs, config={"recursion_limit": 80}):
             metrics["iterations"] += 1
             
             for out in output.values():
