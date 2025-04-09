@@ -92,75 +92,9 @@ def router_function(state):
 - Custom state attributes can be defined with type annotations
 - State is accessible to all components throughout execution
 
-### Use these tools to design the agentic system:
-    - set_state_attributes(attributes: Dict):
-    Defines state attributes accessible throughout the system. Only defines the type annotations, not the values.
-    attributes: A dictionary mapping attribute names to string type annotations. 
-    {'messages': 'List[Any]'} is the default and will be set automatically.
-
-    - pip_install(package_name: str):
-    Securely installs a Python package using pip.
-    package_name: Name of the package to install e.g. "langgraph==0.3.5"
-
-    - add_imports(import_statement: str):
-    Adds custom imports to the target system.
-    import_statement: A string containing import statements e.g. "from x import y"
-
-    - add_node(name: str, description: str, function_code: str):
-    Creates a node in the target system.
-    function_code: Python code defining the node's processing function
-
-    - add_tool(name: str, description: str, function_code: str):
-    Creates a tool in the target system that can be bound to agents and invoked by functions.
-    function_code: Python code defining the tool's function including type annotations and a clear docstring
-
-    - edit_component(component_type: str, name: str, new_function_code: str, new_description: Optional):
-    Modifies an existing node or tool's implementation by providing a new_function_code. This does not allow renaming.
-    component_type: Type of component to edit ('node' or 'tool')
-    name: Name of the component to edit
-    new_function_code: New Python code for the component's function
-
-    - add_edge(source: str, target: str):
-    Adds an edge between nodes in the target system.
-    source: Name of the source node
-    target: Name of the target node
-
-    - add_conditional_edge(source: str, condition_code: str):
-    Adds a conditional edge from a source node.
-    source: Name of the source node
-    condition_code: Python code for the condition function that returns the target node
-
-    - set_endpoints(entry_point: str, finish_point: str):
-    Sets the entry point (start node) and/or finish point (end node) of the workflow.
-    entry_point: Name of the node to set as entry point
-    finish_point: Name of the node to set as finish point
-
-    - test_system(state: Dict):
-    Executes the current system with a test input state to validate functionality.
-    state: A python dictionary with state attributes e.g. {'messages': ['Test Input'], 'attr2': [3, 5]}
-
-    - delete_node(node_name: str):
-    Deletes a node and all its associated edges.
-    node_name: Name of the node to delete
-
-    - delete_edge(source: str, target: str):
-    Deletes an edge between nodes.
-    source: Name of the source node
-    target: Name of the target node
-
-    - delete_conditional_edge(source: str):
-    Deletes a conditional edge from a source node.
-    source: Name of the source node
-
-    - end_design():
-    Finalizes the system design process.
-
-All function code MUST be wrapped inside triple quotes \'\'\'!
-
 Analyze the problem statement to identify key requirements, constraints and success criteria.
 
 Use explicit chain-of-thought reasoning to think through it step by step. 
-
 
 ### **IMPORTANT WORKFLOW RULES**:
 - First set the necessary state attributes, other attributes cannot be accessed
@@ -176,31 +110,7 @@ For each step of the implementation process:
 - Think about which of the available tools would be most appropriate to use next
 - Carefully consider the implications of using that tool
 
-### Tool Call Format
-You need to output tool calls using the exact format, including '```tool_calls' and '```end':
-
-```tool_calls
-tool_name1(param1="value1", param2="value2", ...)
-tool_name2(param1="value1", param2="value2", ...)
-```end
-
-For example:
-
-```tool_calls
-set_state_attributes({"problem": "str"})
-add_node(
-    name="AgentNode", 
-    description="An agent that does stuff", 
-    function_code=\'\'\'
-def agent_node(state):
-    llm = LargeLanguageModel(temperature=0.2)
-    # Implementation details...
-    return new_state
-\'\'\'
-)
-```end
-
-Make sure to properly escape backslashes, and other special characters inside tool call parameters to avoid syntax errors or unintended behavior.
+Make sure to properly escape backslashes, quotes and other special characters inside tool call parameters to avoid syntax errors or unintended behavior.
 The tools you call will be executed directly in the order you specify.
 Therefore, it is better to make only a few tool calls at a time and wait for the responses.
 
