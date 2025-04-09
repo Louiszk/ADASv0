@@ -11,6 +11,7 @@ from tqdm import tqdm
 import traceback
 import re
 import io
+import json
 import contextlib
 import sys
 import subprocess
@@ -44,8 +45,7 @@ def build_system():
         valid_pattern = r'^[a-zA-Z0-9._-]+(\s*[=<>!]=\s*[0-9a-zA-Z.]+)?$'
     
         if not re.match(valid_pattern, package_name):
-            print(f"Error: Invalid package name format. Package name '{package_name}' contains invalid characters.")
-            return None
+            return f"Error: Invalid package name format. Package name '{package_name}' contains invalid characters."
     
         try:
             process = subprocess.run(
@@ -57,25 +57,26 @@ def build_system():
             )
     
             if process.returncode == 0:
-                print(f"Successfully installed {package_name}")
+                return f"Successfully installed {package_name}"
             else:
-                print(f"Error installing {package_name}:\n{process.stdout}")
+                return f"Error installing {package_name}:\n{process.stdout}"
     
         except Exception as e:
-            print(f"Installation failed: {str(e)}")
+            return f"Installation failed: {str(e)}"
     
 
     tools["PipInstall"] = tool(runnable=pip_install, name_or_callable="PipInstall")
 
     # Tool: TestSystem
     # Description: Tests the target system with a given state
-    def test_system(state: Dict[str, Any]) -> str:
+    def test_system(state: str) -> str:
         """
             Executes the current system with a test input state to validate functionality.
-                state: A python dictionary with state attributes e.g. {'messages': ['Test Input'], 'attr2': [3, 5]}
+                state: A json string with state attributes e.g. '{"messages": ["Test Input"], "attr2": [3, 5]}'
         """
         all_outputs = []
         error_message = ""
+        state = json.loads(state)
     
         try:
             with open(target_system_file, 'r') as f:
@@ -117,10 +118,10 @@ def build_system():
     
         test_result = f"Test completed.\n <TestResults>\n{result}\n</TestResults>"
     
-        print(test_result)
-    
         if error_message:
             raise Exception(error_message)
+        else:
+            return test_result
     
 
     tools["TestSystem"] = tool(runnable=test_system, name_or_callable="TestSystem")
@@ -185,9 +186,9 @@ def build_system():
             with open(target_system_file, 'w') as f:
                 f.write(content)
 
-            print("Successfully applied diff to the system.")
+            return "Successfully applied diff to the system."
         except Exception as e:
-            print(f"Error applying diff: {repr(e)}")
+            return f"Error applying diff: {repr(e)}"
 
     tools["ChangeCode"] = tool(runnable=change_code, name_or_callable="ChangeCode")
 
@@ -202,14 +203,15 @@ def build_system():
                 content = f.read()
 
             if "set_entry_point" not in content or "set_finish_point" not in content:
-                print("Error finalizing system: You must set an entry point and finish point before finalizing")
-                return None
+                return "Error finalizing system: You must set an entry point and finish point before finalizing"
 
             # We could test the system here again
 
-            print("Design process completed successfully.")
+            return "Design process completed successfully."
         except Exception as e:
-            print(f"Error finalizing system: {repr(e)}")
+            error_msg = f"Error finalizing system: {repr(e)}"
+            print(error_msg)
+            return error_msg
     
 
     tools["EndDesign"] = tool(runnable=end_design, name_or_callable="EndDesign")
@@ -220,7 +222,9 @@ def build_system():
     # Node: MetaAgent
     # Description: Meta Agent
     def meta_agent_function(state: Dict[str, Any]) -> Dict[str, Any]:  
-        llm = LargeLanguageModel(temperature=0.2, wrapper="blablador", model_name="alias-fast-experimental")
+        llm = LargeLanguageModel(temperature=0.2, wrapper="google", model_name="gemini-2.0-flash")
+        llm.bind_tools(list(tools.keys()))
+
         context_length = 8*2 # even
         messages = state.get("messages", [])
         iteration = len([msg for msg in messages if isinstance(msg, AIMessage)])
@@ -235,55 +239,19 @@ def build_system():
     
         full_messages = [SystemMessage(content=system_prompts.meta_agent)] + initial_messages + last_messages + [HumanMessage(content=code_message)]
         response = llm.invoke(full_messages)
-    
-        # Extract tool calls
-        response_content = response.content
-    
-        # Check for tool calls and execute them
+
+        if not hasattr(response, 'content') or not response.content:
+            response.content = "I will call the necessary tools."
+
+        tool_messages, tool_results = execute_tool_calls(response)
+
         design_completed = False
-        tool_results = []
-    
-        # Find all tool calls
-        tool_calls_pattern = r"```tool_calls\n(.*?)```end"
-        tool_calls_matches = re.findall(tool_calls_pattern, response_content, re.DOTALL)
-    
-        # Define the available tools in a namespace
-        tools_namespace = {
-            "pip_install": pip_install,
-            "test_system": test_system,
-            "change_code": change_code,
-            "end_design": end_design
-        }
-    
-        for tool_call in tool_calls_matches:
-            try:
-                # Capture stdout to get tool execution results
-                string_io = io.StringIO()
-                with contextlib.redirect_stdout(string_io):
-                    local_namespace = dict(tools_namespace)
-    
-                    exec(tool_call, globals(), local_namespace)
-    
-                output = string_io.getvalue().strip()
-    
-                if "Design process completed" in output:
-                    design_completed = True
-    
-                tool_results.append(output or "Tool call executed successfully.")
-            except Exception as e:
-                output = string_io.getvalue().strip()
-                error_message = f"\nError executing tool call: {repr(e)}"
-                tool_results.append(output + error_message)
-                break
-    
-        if tool_results:
-            tool_output = "\n\n".join(tool_results)
-            tool_response = f"\n\nTool Execution Results:\n{tool_output}"
-        else: 
-            tool_response = "You made no tool calls. Maybe you forget to wrap the tool calls inside ```tool_calls\n```end"
-    
-        tool_message = HumanMessage(content=tool_response)
-        updated_messages = messages + [response, tool_message]
+        if tool_results and 'EndDesign' in tool_results and "Design process completed successfully" in str(tool_results['EndDesign']):
+            design_completed = True
+
+        updated_messages = messages + [response]
+        if tool_messages:
+            updated_messages.extend(tool_messages)
     
         new_state = {"messages": updated_messages, "design_completed": design_completed}
         return new_state

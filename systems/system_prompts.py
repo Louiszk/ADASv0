@@ -1,7 +1,6 @@
 # modified from https://github.com/Aider-AI/aider/blob/main/aider/coders/udiff_prompts.py
 udiff_prompt = """
-Return edits similar to unified diffs that `diff -U0` would produce.
-The whole diff MUST be wrapped inside triple quotes '''!
+These unified diffs are similar to unified diffs that `diff -U0` would produce.
 
 Don't include file paths like --- a/agentic_system/main.py\n+++ b/agentic_system/main.py\n
 Don't include timestamps, start right away with `@@ ... @@`
@@ -145,26 +144,27 @@ graph.add_conditional_edges("SourceNode", router_function)
 - Custom state attributes can be defined with type annotations
 - State is accessible to all components throughout execution
 
-### Use these tools to design the agentic system:
-
-    - pip_install(package_name: str):
-    Securely installs a Python package using pip.
-    package_name: Name of the package to install e.g. "langgraph==0.3.5"
-
-    - change_code(diff: str):
-    Modifies the target system file using a unified diff.
-    diff: A unified diff string representing the changes to make to the target system file
-
-    - test_system(state: Dict):
-    Executes the current system with a test input state to validate functionality.
-    state: A python dictionary with state attributes e.g. {'messages': ['Test Input'], 'attr2': [3, 5]}
-
-    - end_design():
-    Finalizes the system design process.
-
 ### Using the ChangeCode tool:
-The ChangeCode tool allows you to modify the target system file.
+The ChangeCode tool allows you to modify the target system file using unified diffs.
 ''' + udiff_prompt + '''
+
+For example, this is a valid unified diff for the ChangeCode tool:
+@@ ... @@
+-    # ===== Node Definitions =====
++    # ===== Node Definitions =====
++    # Node: ProcessorNode
++    # Description: Processes input data and returns a result
++    def processor_node(state):
++        # Process the input data
++        input_data = state.get("input_data", "")
++        result = input_data.upper()
++        
++        # Update state with the result
++        new_state = state.copy()
++        new_state["result"] = result
++        return new_state
++    
++    graph.add_node("ProcessorNode", processor_node)
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.
 
@@ -185,39 +185,7 @@ For each step of the implementation process:
 - Think about which of the available tools would be most appropriate to use next
 - Carefully consider the implications of using that tool
 
-### Tool Call Format
-You need to output tool calls using the exact format, including '```tool_calls' and '```end':
-
-```tool_calls
-tool_name1(param1="value1", param2="value2", ...)
-tool_name2(param1="value1", param2="value2", ...)
-```end
-
-For example:
-
-```tool_calls
-change_code(diff=\'\'\'
-@@ ... @@
--    # ===== Node Definitions =====
-+    # ===== Node Definitions =====
-+    # Node: ProcessorNode
-+    # Description: Processes input data and returns a result
-+    def processor_node(state):
-+        # Process the input data
-+        input_data = state.get("input_data", "")
-+        result = input_data.upper()
-+        
-+        # Update state with the result
-+        new_state = state.copy()
-+        new_state["result"] = result
-+        return new_state
-+    
-+    graph.add_node("ProcessorNode", processor_node)
-\'\'\'
-)
-```end
-    
-Make sure to properly escape backslashes and other special characters inside tool call parameters to avoid syntax errors or unintended behavior.
+Make sure to properly escape backslashes, quotes and other special characters inside tool call parameters to avoid syntax errors or unintended behavior.
 The tools you call will be executed directly in the order you specify.
 Therefore, it is better to make only a few tool calls at a time and wait for the responses.
 

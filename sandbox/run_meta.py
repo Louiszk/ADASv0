@@ -72,7 +72,7 @@ def main():
         processed_msg_ids = set()
        
         print("Streaming meta system execution...")
-        for output in workflow.stream(inputs, config={"recursion_limit": 60}):
+        for output in workflow.stream(inputs, config={"recursion_limit": 80}):
             metrics["iterations"] += 1
             
             for out in output.values():
@@ -86,6 +86,8 @@ def main():
                             stream_content = f"\n[{msg_type}]: {content}\n"
                             metrics["stream_content"] += stream_content.replace('"', '\"')
                             print(stream_content)
+                            if "MALFORMED_FUNCTION_CALL" in str(last_msg):
+                                print("MALFORMED_FUNCTION_CALL")
                             
                             # Extract token usage from AI messages (avoid double counting)
                             msg_id = getattr(last_msg, 'id', None)
