@@ -1,5 +1,5 @@
 file_content_prompt = """
-Return the complete file content in a single string. 
+The ChangeCode tool expects the complete file_content as a single string. 
 The content you provide will completely replace the existing content of the target file.
 Do not get lazy, do not remove important parts of the implementation.
 Do not use any placeholders.
@@ -152,6 +152,7 @@ For each step of the implementation process:
 - Think about which of the available tools would be most appropriate to use next
 - Carefully consider the implications of using that tool
 
+Make sure to properly escape backslashes, quotes and other special characters inside tool call parameters to avoid syntax errors or unintended behavior.
 The tools you call will be executed directly in the order you specify.
 Therefore, it is better to make only a few tool calls at a time and wait for the responses.
 

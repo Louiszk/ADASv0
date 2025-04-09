@@ -11,6 +11,7 @@ from tqdm import tqdm
 import traceback
 import re
 import io
+import json
 import contextlib
 import sys
 import subprocess
@@ -68,13 +69,14 @@ def build_system():
 
     # Tool: TestSystem
     # Description: Tests the target system with a given state
-    def test_system(state: Dict[str, Any]) -> str:
+    def test_system(state: str) -> str:
         """
             Executes the current system with a test input state to validate functionality.
-                state: A python dictionary with state attributes e.g. {'messages': ['Test Input'], 'attr2': [3, 5]}
+                state: A json string with state attributes e.g. '{"messages": ["Test Input"], "attr2": [3, 5]}'
         """
         all_outputs = []
         error_message = None
+        state = json.loads(state)
     
         try:
             with open(target_system_file, 'r') as f:

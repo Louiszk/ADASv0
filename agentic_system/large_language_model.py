@@ -34,7 +34,6 @@ def execute_tool_calls(response):
                     name=tool_name
                 ))
                 tool_results[tool_name] = error_message
-                break
                 
     return tool_messages, tool_results
 
