@@ -4,7 +4,7 @@
 
 from langgraph.graph import StateGraph
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage, trim_messages
 from typing import Dict, List, Any, Callable, Optional, Union, TypeVar, Generic, Tuple, Set, TypedDict
 from agentic_system.large_language_model import LargeLanguageModel, execute_tool_calls
 from tqdm import tqdm
@@ -228,8 +228,17 @@ def build_system():
         context_length = 8*2 # even
         messages = state.get("messages", [])
         iteration = len([msg for msg in messages if isinstance(msg, AIMessage)])
-        initial_messages, current_messages = messages[:2], messages[2:]
-        last_messages = current_messages[-context_length:] if len(current_messages) >= context_length else current_messages
+        initial_message, current_messages = messages[0], messages[1:]
+        try:
+            trimmed_messages = trim_messages(
+                current_messages,
+                max_tokens=context_length,
+                strategy="last",
+                token_counter=len,
+                allow_partial=False    
+            )
+        except Exception as e:
+             print(f"Error during message trimming: {e}")
     
         # Read the current content of the target system file
         with open(target_system_file, 'r') as f:
@@ -237,7 +246,8 @@ def build_system():
 
         code_message = f"(Iteration {iteration}) Current Code:\n" + code_content
     
-        full_messages = [SystemMessage(content=system_prompts.meta_agent)] + initial_messages + last_messages + [HumanMessage(content=code_message)]
+        full_messages = [SystemMessage(content=system_prompts.meta_agent), initial_message] + trimmed_messages + [HumanMessage(content=code_message)]
+        print([getattr(last_msg, 'type', 'Unknown') for last_msg in full_messages])
         response = llm.invoke(full_messages)
 
         if not hasattr(response, 'content') or not response.content:
@@ -252,6 +262,8 @@ def build_system():
         updated_messages = messages + [response]
         if tool_messages:
             updated_messages.extend(tool_messages)
+        else:
+            updated_messages.append(HumanMessage(content="You made no tool calls."))
     
         new_state = {"messages": updated_messages, "design_completed": design_completed}
         return new_state
