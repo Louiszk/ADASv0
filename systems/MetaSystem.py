@@ -206,9 +206,7 @@ def build_system():
             if "set_entry_point" not in content or "set_finish_point" not in content:
                 return "Error finalizing system: You must set an entry point and finish point before finalizing"
 
-            # We could test the system here again
-
-            return "Design process completed successfully."
+            return "Ending the design process..."
         except Exception as e:
             error_msg = f"Error finalizing system: {repr(e)}"
             print(error_msg)
@@ -256,16 +254,33 @@ def build_system():
 
         tool_messages, tool_results = execute_tool_calls(response)
 
-        design_completed = False
-        if tool_results and 'EndDesign' in tool_results and "Design process completed successfully" in str(tool_results['EndDesign']):
-            design_completed = True
-
         updated_messages = messages + [response]
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
             updated_messages.append(HumanMessage(content="You made no tool calls."))
     
+        # Ending the design if the last test ran without errors (this does not check accuracy)
+        design_completed = False
+        if tool_results and 'EndDesign' in tool_results and "Ending the design process" in str(tool_results['EndDesign']):
+            test_passed_recently = False
+            search_start_index = max(0, len(messages) - 6)
+            for msg in reversed(updated_messages[search_start_index:]):
+                if isinstance(msg, ToolMessage) and hasattr(msg, 'content'):
+                    if "Test completed." in msg.content:
+                        test_passed_recently = True
+                        break
+                    elif "Error while testing the system" in msg.content:
+                        test_passed_recently = False
+                        break
+
+            if test_passed_recently or iteration > 60:
+                design_completed = True
+            else:
+                 for i, tm in enumerate(tool_messages):
+                     if tm.name == 'EndDesign':
+                         tm.content += "Error: Cannot finalize design. Please run successful tests using TestSystem first."
+
         new_state = {"messages": updated_messages, "design_completed": design_completed}
         return new_state
     
