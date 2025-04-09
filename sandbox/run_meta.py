@@ -70,7 +70,8 @@ def main():
         workflow, tools = MetaSystem.build_system()
         inputs = {"messages": [HumanMessage(content=problem_statement)]}
         processed_msg_ids = set()
-       
+        processed_msg_count = 0
+
         print("Streaming meta system execution...")
         for output in workflow.stream(inputs, config={"recursion_limit": 80}):
             metrics["iterations"] += 1
@@ -79,32 +80,37 @@ def main():
                 if "messages" in out:
                     messages = out["messages"]
                     if messages:
-                        last_msgs = messages[-2:]
-                        for last_msg in last_msgs:
-                            msg_type = getattr(last_msg, 'type', 'Unknown')
-                            content = getattr(last_msg, 'content', '')
+                        # Only process new messages
+                        new_messages = messages[processed_msg_count:]
+                        for msg in new_messages:
+                            msg_type = getattr(msg, 'type', 'Unknown')
+                            content = getattr(msg, 'content', '')
                             stream_content = f"\n[{msg_type}]: {content}\n"
                             metrics["stream_content"] += stream_content.replace('"', '\"')
                             print(stream_content)
-                            if "MALFORMED_FUNCTION_CALL" in str(last_msg):
+                            
+                            if "MALFORMED_FUNCTION_CALL" in str(msg):
                                 print("MALFORMED_FUNCTION_CALL")
                             
                             # Extract token usage from AI messages (avoid double counting)
-                            msg_id = getattr(last_msg, 'id', None)
-                            if (msg_id and msg_id not in processed_msg_ids and 
-                                hasattr(last_msg, 'usage_metadata') and last_msg.usage_metadata):
-                                token_usage = last_msg.usage_metadata
+                            msg_id = getattr(msg, 'id', None)
+                            if (msg_id and msg_id not in processed_msg_ids and
+                                hasattr(msg, 'usage_metadata') and msg.usage_metadata):
+                                token_usage = msg.usage_metadata
                                 metrics["token_usage"]["input_tokens"] += token_usage.get('input_tokens', 0)
                                 metrics["token_usage"]["output_tokens"] += token_usage.get('output_tokens', 0)
                                 metrics["token_usage"]["total_tokens"] += token_usage.get('total_tokens', 0)
                                 processed_msg_ids.add(msg_id)
+                        
+                        # Update count
+                        processed_msg_count = len(messages)
                 
                 if "design_completed" in out and out["design_completed"]:
                     print("Design completed.")
                     metrics["status"] = "completed"
             
             time.sleep(2)
-        
+
         metrics["status"] = "completed"
        
     except Exception as e:
