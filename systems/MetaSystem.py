@@ -178,8 +178,9 @@ def build_system():
                     if failed.get("error") == "not_unique":
                         error_msg += f"Hunk #{i+1} matched multiple locations:\n```\n{failed['before_text']}\n```\n"
                     else:
-                        error_msg += f"Hunk #{i+1} failed to match:\n```\n{failed['before_text']}\n```\n"
+                        error_msg += f"Hunk #{i+1} failed to match the current code:\n```\n{failed['before_text']}\n```\n"
 
+                error_msg += "Try again with a smaller, more targeted diff."
                 print(error_msg)
                 return (error_msg)
 

@@ -27,6 +27,10 @@ Hunks don't need to be in any particular order.
 When editing a function, method, loop, etc use a hunk to replace the *entire* code block.
 Delete the entire existing version with `-` lines and then add a new, updated version with `+` lines.
 This will help you generate correct code and correct diffs.
+
+Prefer making **small, targeted diffs** that modify only one logical part of the code at a time 
+(e.g., add one function definition, add one node, add one edge, modify a single function's body). 
+Avoid generating large hunks that attempt to change many different parts of the file at once. 
 """
 
 chain_of_thought = """

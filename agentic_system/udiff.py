@@ -7,7 +7,7 @@ import os
 no_match_error = """UnifiedDiffNoMatch: hunk failed to apply!
 
 The system does not contain lines that match the diff you provided!
-Try again.
+Try again with a smaller, more targeted diff.
 DO NOT skip blank lines, comments, docstrings, etc!
 The diff needs to apply cleanly to the lines of the current code!
 """
@@ -15,7 +15,7 @@ The diff needs to apply cleanly to the lines of the current code!
 not_unique_error = """UnifiedDiffNotUnique: hunk failed to apply!
 
 The system contains multiple sets of lines that match the diff you provided!
-Try again.
+Try again with a smaller, more targeted diff.
 The diff needs to apply to a unique set of lines in the file!
 """
 
