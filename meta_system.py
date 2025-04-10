@@ -75,21 +75,37 @@ def create_meta_system():
         pip_install
     )
     
-    def add_imports(import_statement: str) -> str:
+    def set_imports(import_statements: List[str]) -> str:
         """
-            Adds custom imports to the target system.
-                import_statement: A string containing import statements e.g. "from x import y"
+            Sets the list of import statements for the target system. This replaces any existing imports.
+                import_statements: A list of strings, where each string is a complete import statement (e.g., ['import os', 'from typing import List']).
         """
+
         try:
-            target_system.add_imports(import_statement.strip())
-            return f"Import statement '{import_statement}' added to target system."
+            # Basic validation for each statement
+            for stmt in import_statements:
+                if not isinstance(stmt, str) or not (stmt.startswith("import ") or stmt.startswith("from ")):
+                    return f"Error: Invalid import statement format: '{stmt}'. Must start with 'import' or 'from'."
+
+            # Always keep the mandatory base imports
+            base_imports = [
+                "from langchain_core.tools import tool",
+                "from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage",
+                "from typing import Dict, List, Any, Callable, Optional, Union, TypeVar, Generic, Tuple, Set, TypedDict",
+                "from agentic_system.large_language_model import LargeLanguageModel, execute_tool_calls"
+            ]
+            # Use a set to avoid duplicates and preserve order for non-base imports
+            final_imports = base_imports + sorted(list(set(stmt.strip() for stmt in import_statements if stmt.strip() not in base_imports)))
+
+            target_system.imports = final_imports
+            return f"Import statements set successfully for target system. Total imports: {len(target_system.imports)}."
         except Exception as e:
-            return f"Error adding import: {repr(e)}"
-    
+            return f"Error setting imports: {repr(e)}"
+
     meta_system.create_tool(
-        "AddImports",
-        "Adds custom import statements to the target system",
-        add_imports
+        "SetImports",
+        "Sets the list of necessary import statements for the target system, replacing existing custom imports.",
+        set_imports
     )
     
     def set_state_attributes(attributes: str) -> str:
