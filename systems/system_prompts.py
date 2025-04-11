@@ -14,23 +14,13 @@ Think carefully and make sure you include and mark all lines that need to be rem
 Make sure you mark all new or modified lines with `+`.
 Don't leave out any lines or the diff patch won't apply correctly.
 
-Indentation matters in the diffs!
+Indentation matters a lot in the diffs!
 
+Prefer making **small, targeted diffs** that modify only one logical part of the code at a time. 
+Never generate large hunks that attempt to change the whole file at once!
 Start a new hunk for each section of the file that needs changes.
 
-Only output hunks that specify changes with `+` or `-` lines.
-Skip any hunks that are entirely unchanging ` ` lines.
-
-Output hunks in whatever order makes the most sense.
-Hunks don't need to be in any particular order.
-
-When editing a function, method, loop, etc use a hunk to replace the *entire* code block.
-Delete the entire existing version with `-` lines and then add a new, updated version with `+` lines.
-This will help you generate correct code and correct diffs.
-
-Prefer making **small, targeted diffs** that modify only one logical part of the code at a time 
-(e.g., add one function definition, add one node, add one edge, modify a single function's body). 
-Avoid generating large hunks that attempt to change many different parts of the file at once. 
+Always check the current code to avoid duplication at all costs.
 """
 
 chain_of_thought = """

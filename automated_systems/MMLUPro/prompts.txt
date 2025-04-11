@@ -10,9 +10,11 @@ Examples include, but are not limited to:
     options: [ '7', '5', '12', '4', '11', '6', '8', '10', '9', '3' ]
     solution: 'I'
 
+The system's state must therefore contain the attributes:
+'question' : str , 'options': List[str], 'solution' : str
+
 The system should be able to solve any multiple-choice question in computer science with high accuracy.
 The correct solution is not provided in the input, it must be generated entirely by the system.
+The system's final state must include the correct 'solution' as a single letter ('A', 'B', ..., 'J')
 The system must not include any tools or functions that depend on an API key.
 The system must be completed in no more than 60 iterations.
-The system's state must contain the attributes:
-'question' : str , 'options': List[str], 'solution' : str

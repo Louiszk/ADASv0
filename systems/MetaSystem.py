@@ -11,6 +11,7 @@ from tqdm import tqdm
 import traceback
 import re
 import io
+import os
 import json
 import contextlib
 import sys
@@ -136,6 +137,12 @@ def build_system():
         try:
             from agentic_system.udiff import find_diffs, do_replace, hunk_to_before_after, no_match_error, SearchTextNotUnique
 
+            # Check for build_system() modifications
+            if "+def build_system()" in diff or "-def build_system()" in diff:
+                error_msg = "Error: Modifications to build_system() function signature are not allowed."
+                print(error_msg)
+                return error_msg
+
             with open(target_system_file, 'r') as f:
                 content = f.read()
 
@@ -148,7 +155,7 @@ def build_system():
             success = False
             failed_hunks = []
 
-            for _, hunk in edits:
+            for i, (_, hunk) in enumerate(edits):
                 try:
                     # Apply the diff
                     new_content = do_replace(target_system_file, content, hunk)
@@ -156,13 +163,15 @@ def build_system():
                         content = new_content
                         success = True
                     else:
-                        # failed hunks for debugging
+                        # Failed hunk
                         before_text, _ = hunk_to_before_after(hunk)
                         failed_hunks.append({
                             "before_text": before_text[:150] + ("..." if len(before_text) > 150 else ""),
                             "hunk_lines": len(hunk),
                             "error": "no_match"
                         })
+                        # Stop after first failure
+                        break
                 except SearchTextNotUnique:
                     before_text, _ = hunk_to_before_after(hunk)
                     failed_hunks.append({
@@ -170,6 +179,8 @@ def build_system():
                         "hunk_lines": len(hunk),
                         "error": "not_unique"
                     })
+                    # Stop after first failure
+                    break
 
             if not success:
                 error_msg = f"Error: Failed to apply diffs to the system.\n"
@@ -182,7 +193,7 @@ def build_system():
 
                 error_msg += "Try again with a smaller, more targeted diff."
                 print(error_msg)
-                return (error_msg)
+                return error_msg
 
             with open(target_system_file, 'w') as f:
                 f.write(content)
@@ -192,6 +203,30 @@ def build_system():
             return f"Error applying diff: {repr(e)}"
 
     tools["ChangeCode"] = tool(runnable=change_code, name_or_callable="ChangeCode")
+
+    # Tool: ResetSystem
+    # Description: Resets the target system file to its initial template state
+    def reset_system() -> str:
+        """
+            Resets the target system file to its initial template state, discarding all current changes.
+            Only use this if the current code is broken beyond repair.
+        """
+        try:
+            template_path = "/sandbox/workspace/agentic_system/target_system_template.py"
+            if not os.path.exists(template_path):
+                return "Error: Target system template file not found."
+            
+            with open(template_path, 'r') as f_template:
+                template_content = f_template.read()
+            
+            with open(target_system_file, 'w') as f_target:
+                f_target.write(template_content)
+                
+            return "Successfully reset the target system file to the template."
+        except Exception as e:
+            return f"Error resetting system: {repr(e)}"
+
+    tools["ResetSystem"] = tool(runnable=reset_system, name_or_callable="ResetSystem")
 
     # Tool: EndDesign
     # Description: Finalizes the system design process
@@ -221,7 +256,7 @@ def build_system():
     # Node: MetaAgent
     # Description: Meta Agent
     def meta_agent_function(state: Dict[str, Any]) -> Dict[str, Any]:  
-        llm = LargeLanguageModel(temperature=0.2, wrapper="google", model_name="gemini-2.0-flash")
+        llm = LargeLanguageModel(temperature=0.4, wrapper="google", model_name="gemini-2.0-flash")
         llm.bind_tools(list(tools.keys()))
 
         context_length = 8*2 # even
@@ -274,7 +309,7 @@ def build_system():
                         test_passed_recently = False
                         break
 
-            if test_passed_recently or iteration > 60:
+            if test_passed_recently or iteration >= 58:
                 design_completed = True
             else:
                  for i, tm in enumerate(tool_messages):
