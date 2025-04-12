@@ -10,13 +10,15 @@ Don't include line numbers like `diff -U0` does.
 The user's patch tool doesn't need them.
 
 The user's patch tool needs CORRECT patches that apply cleanly against the current contents of the file!
-Think carefully and make sure you include and mark all lines that need to be removed or changed as `-` lines.
-Make sure you mark all new or modified lines with `+`.
-Don't leave out any lines or the diff patch won't apply correctly.
+Think carefully.
+Make sure you mark all lines that need to be removed as `-` lines.
+Make sure you mark all new lines with `+`.
+Context lines must begin with ` `.
 
-Indentation matters a lot in the diffs!
+Correct 4 space indentation matters a lot in the diffs!
 
-Prefer making **small, targeted diffs** that modify only one logical part of the code at a time. 
+Prefer making **small, targeted diffs** that modify only one logical part of the code at a time.
+First remove the old code with `-` lines and then add the new code with `+` lines.
 Never generate large hunks that attempt to change the whole file at once!
 Start a new hunk for each section of the file that needs changes.
 

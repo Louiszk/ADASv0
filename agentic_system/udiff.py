@@ -29,29 +29,18 @@ def normalize_line_endings(text):
 
 def normalize_indentation(line):
     """
-    Normalize line indentation to multiples of 4 spaces.
+    Normalize line indentation to exactly 4 spaces per level.
     """
     if not line or not line.strip():
         return line
         
-    # Count leading spaces
     leading_spaces = len(line) - len(line.lstrip(' '))
+    indent_level = round(leading_spaces / 4)
     
-    if leading_spaces == 0 or leading_spaces % 4 == 0:
-        return line  # Already a multiple of 4
-    
-    remainder = leading_spaces % 4
-    
-    if remainder == 1:  # 1, 5, 9, ...
-        normalized_spaces = (leading_spaces // 4) * 4  # Round down to previous multiple of 4
-    elif remainder in [2, 3]:  # 2, 3, 6, 7, 10, 11, ...
-        normalized_spaces = ((leading_spaces // 4) + 1) * 4  # Round up to next multiple of 4
-    
-    # Replace the indentation
-    return ' ' * normalized_spaces + line.lstrip(' ')
+    return ' ' * (indent_level * 4) + line.lstrip(' ')
 
 def find_diffs(content):
-    """Find diffs in content, supporting various diff formats."""
+    """Find diffs in content"""
     content = normalize_line_endings(content)
     
     if not content.endswith("\n"):
@@ -59,122 +48,23 @@ def find_diffs(content):
 
     lines = content.splitlines(keepends=True)
     
-    # Check for diff blocks in markdown
-    if any(line.startswith("```diff") for line in lines):
-        return find_diffs_in_markdown(content)
-    
-    # Check for standard unified diff format with @@ markers
-    if any(line.startswith("@@ ") for line in lines):
-        return parse_unified_diff(lines)
-    
-    # Try to parse as simple +/- changes without hunk markers
-    if any(line.startswith("+") or line.startswith("-") for line in lines):
-        synthetic_hunk = ["@@ -1,1 +1,1 @@\n"] 
-        synthetic_hunk.extend([l for l in lines if l.startswith("+") or l.startswith("-") or l.startswith(" ")])
-        return [(None, synthetic_hunk)]
-    
-    return []
-
-def find_diffs_in_markdown(content):
-    """Extract diffs from markdown code blocks."""
-    content = normalize_line_endings(content)
-    lines = content.splitlines(keepends=True)
-    line_num = 0
-    edits = []
-    
-    while line_num < len(lines):
-        if lines[line_num].startswith("```diff"):
-            next_line_num, these_edits = process_fenced_block(lines, line_num + 1)
-            edits += these_edits
-            line_num = next_line_num
-        else:
-            line_num += 1
-            
-    return edits
-
-def parse_unified_diff(lines):
-    """Parse lines in standard unified diff format."""
-    edits = []
+    # Check for @@ @@ markers
+    hunks = []
     current_hunk = []
-    fname = None
     
     for line in lines:
         if line.startswith("@@ "):
-            # Start a new hunk
             if current_hunk and any(l.startswith("+") or l.startswith("-") for l in current_hunk):
-                edits.append((fname, current_hunk))
+                hunks.append((None, current_hunk))
             current_hunk = [line]
-        elif line.startswith("--- "):
-            # File indicator (old)
-            continue
-        elif line.startswith("+++ "):
-            # File indicator (new)
-            fname = line[4:].strip()
-            current_hunk = []
-        elif current_hunk or line.startswith(" ") or line.startswith("+") or line.startswith("-"):
+        elif current_hunk and (line.startswith(" ") or line.startswith("+") or line.startswith("-") or not line.strip()):
             current_hunk.append(line)
-            
+    
     # Add the last hunk if it exists
     if current_hunk and any(l.startswith("+") or l.startswith("-") for l in current_hunk):
-        edits.append((fname, current_hunk))
-        
-    return edits
-
-def process_fenced_block(lines, start_line_num):
-    """Process a fenced code block containing a diff."""
-    end_line_num = len(lines)
+        hunks.append((None, current_hunk))
     
-    # Find the end of the markdown block
-    for line_num in range(start_line_num, len(lines)):
-        if lines[line_num].startswith("```"):
-            end_line_num = line_num
-            break
-    
-    # Extract the block content
-    block = lines[start_line_num:end_line_num]
-    block.append("@@ @@")  # Add a marker to ensure the last hunk is processed
-    
-    # Process the block as a diff
-    edits = []
-    fname = None
-    hunk = []
-    keeper = False
-    
-    for line in block:
-        hunk.append(line)
-        
-        if len(line) < 2:
-            continue
-            
-        if line.startswith("+++ ") and len(hunk) >= 2 and hunk[-2].startswith("--- "):
-            if len(hunk) > 2 and hunk[-3] == "\n":
-                hunk = hunk[:-3]
-            else:
-                hunk = hunk[:-2]
-                
-            edits.append((fname, hunk))
-            hunk = []
-            keeper = False
-            
-            fname = line[4:].strip()
-            continue
-            
-        op = line[0]
-        if op in "-+":
-            keeper = True
-            continue
-        if op != "@":
-            continue
-        if not keeper:
-            hunk = []
-            continue
-            
-        hunk = hunk[:-1]  # Remove the @@ line
-        edits.append((fname, hunk))
-        hunk = []
-        keeper = False
-    
-    return end_line_num + 1, edits
+    return hunks
 
 def hunk_to_before_after(hunk, lines=False):
     """Convert a diff hunk to before and after strings or lists of lines."""
@@ -187,9 +77,6 @@ def hunk_to_before_after(hunk, lines=False):
             
         op = line[0]
         rest = line[1:] if len(line) > 1 else ""
-        
-        # Normalize indentation to prevent common errors
-        rest = normalize_indentation(rest)
         
         if op == " ":
             before.append(rest)
@@ -226,7 +113,7 @@ def normalize_hunk(hunk):
     except IndexError:
         return hunk  # Return original if normalization fails
 
-def fuzzy_match_block(content, search_block, threshold=0.8):
+def fuzzy_match_block(content, search_block, threshold=0.95):
     """Find the best match for a block of text within content using fuzzy matching."""
     content_lines = content.splitlines()
     search_lines = search_block.splitlines()
@@ -265,116 +152,137 @@ def directly_apply_hunk(content, hunk):
             raise SearchTextNotUnique()
         return content.replace(before_text, after_text)
     
-    # Try with whitespace normalization
-    normalized_content = re.sub(r'\s+', ' ', content)
-    normalized_before = re.sub(r'\s+', ' ', before_text)
+    # Try with normalized whitespace
+    content_lines = content.splitlines()
+    before_lines = before_text.splitlines()
     
-    if normalized_before in normalized_content:
-        # Find the actual match position in original content
-        first_line = before_text.splitlines()[0] if before_text.splitlines() else ""
-        if first_line and first_line in content:
-            start_idx = content.find(first_line)
-            if start_idx >= 0:
-                # Try to locate the exact block
-                potential_end = start_idx + len(before_text)
-                if potential_end <= len(content):
-                    potential_match = content[start_idx:potential_end]
-                    if re.sub(r'\s+', ' ', potential_match) == normalized_before:
-                        return content[:start_idx] + after_text + content[potential_end:]
+    if not before_lines:
+        return None
     
-    # Try fuzzy matching if exact match fails
+    for i in range(len(content_lines) - len(before_lines) + 1):
+        match = True
+        for j, before_line in enumerate(before_lines):
+            content_line = content_lines[i+j]
+            # Ignore whitespace differences only for comparison
+            if content_line.strip() != before_line.strip():
+                match = False
+                break
+        
+        if match:
+            # Found a match - replace it
+            content_before = "\n".join(content_lines[:i])
+            content_after = "\n".join(content_lines[i+len(before_lines):])
+            return content_before + ("\n" if content_before else "") + after_text + ("\n" if content_after else "") + content_after
+    
     matched_text, match_ratio = fuzzy_match_block(content, before_text)
-    if matched_text and match_ratio >= 0.9:
+    if matched_text and match_ratio >= 0.95:  # Very high threshold for safety
         if content.count(matched_text) > 1:
             raise SearchTextNotUnique()
         return content.replace(matched_text, after_text)
     
     return None
 
-def extract_context_sections(hunk):
-    """Extract context and change sections from a hunk."""
-    sections = []
-    current_type = None
-    current_section = []
-    
-    for line in hunk:
-        if not line or len(line) < 1:
-            continue
-            
-        line_type = line[0]
-        if line_type != current_type:
-            if current_section:
-                sections.append((current_type, current_section))
-            current_type = line_type
-            current_section = []
-        current_section.append(line)
-    
-    if current_section:
-        sections.append((current_type, current_section))
-    
-    return sections
-
 def apply_partial_hunk(content, hunk):
-    """Apply a hunk by trying with varying amounts of context."""
+    """Apply a hunk by trying with varying amounts of context, ensuring all parts are applied."""
     content = normalize_line_endings(content)
     
-    # Extract sections by type (context vs. changes)
-    sections = extract_context_sections(hunk)
+    # Group lines by operation type (context vs changes)
+    sections = []
+    current_section = []
+    current_op_type = None  # " " for context, "x" for changes
     
-    # Try to apply each section of changes
-    content_result = content
-    all_applied = True
-    
-    for i, (section_type, section) in enumerate(sections):
-        if section_type not in "+-":
+    for line in hunk:
+        if not isinstance(line, str) or len(line) < 1:
             continue
-            
+        
+        op = line[0]
+        op_type = " " if op == " " else "x"  # Group + and - together as changes
+        
+        if op_type != current_op_type:
+            if current_section:
+                sections.append((current_op_type, current_section))
+            current_section = []
+            current_op_type = op_type
+        
+        current_section.append(line)
+    
+    # Add the last section
+    if current_section:
+        sections.append((current_op_type, current_section))
+    
+    # Ensure the last section is a context section (for consistency)
+    if sections and sections[-1][0] != " ":
+        sections.append((" ", []))
+    
+    # Try to apply each context-changes-context triplet
+    all_done = True
+    modified_content = content
+    
+    for i in range(1, len(sections), 2):
+        # Skip if this isn't a changes section
+        if i >= len(sections) or sections[i][0] != "x":
+            continue
+        
         # Get preceding and following context
         preceding_ctx = []
-        following_ctx = []
-        
-        if i > 0 and sections[i-1][0] == " ":
+        if i > 0:
             preceding_ctx = sections[i-1][1]
-        if i < len(sections) - 1 and sections[i+1][0] == " ":
+        
+        changes = sections[i][1]
+        
+        following_ctx = []
+        if i+1 < len(sections):
             following_ctx = sections[i+1][1]
         
-        # Create mini-hunk with just this section and its context
-        mini_hunk = preceding_ctx + section + following_ctx
+        # Try to apply this section
+        section_applied = False
         
+        # Try with full context first
+        mini_hunk = preceding_ctx + changes + following_ctx
         try:
-            # Try to apply just this mini-hunk
-            result = directly_apply_hunk(content_result, mini_hunk)
+            result = directly_apply_hunk(modified_content, mini_hunk)
             if result:
-                content_result = result
-            else:
-                # Try with less context
-                for p_ctx_amount in range(len(preceding_ctx), -1, -1):
-                    p_ctx = preceding_ctx[-p_ctx_amount:] if p_ctx_amount else []
-                    
-                    for f_ctx_amount in range(len(following_ctx), -1, -1):
-                        f_ctx = following_ctx[:f_ctx_amount] if f_ctx_amount else []
-                        partial_hunk = p_ctx + section + f_ctx
-                        
-                        try:
-                            inner_result = directly_apply_hunk(content_result, partial_hunk)
-                            if inner_result:
-                                content_result = inner_result
-                                break
-                        except SearchTextNotUnique:
-                            continue
-                    
-                    if content_result != content:  # If something changed
-                        break
+                modified_content = result
+                section_applied = True
         except SearchTextNotUnique:
-            all_applied = False
+            pass
+        
+        # If full context didn't work, try with reduced context
+        if not section_applied:
+            for before_size in [len(preceding_ctx), len(preceding_ctx)//2, 1, 0]:
+                if section_applied:
+                    break
+                    
+                for after_size in [len(following_ctx), len(following_ctx)//2, 1, 0]:
+                    if before_size == 0 and after_size == 0 and len(preceding_ctx) + len(following_ctx) > 0:
+                        continue  # Skip if we have context but are trying without any
+                    
+                    b_ctx = preceding_ctx[-before_size:] if before_size else []
+                    a_ctx = following_ctx[:after_size] if after_size else []
+                    
+                    mini_hunk = b_ctx + changes + a_ctx
+                    try:
+                        result = directly_apply_hunk(modified_content, mini_hunk)
+                        if result:
+                            modified_content = result
+                            section_applied = True
+                            break
+                    except SearchTextNotUnique:
+                        pass
+        
+        # If this section couldn't be applied, the whole hunk fails
+        if not section_applied:
+            all_done = False
+            break
     
-    return content_result if all_applied or content_result != content else None
+    # Only return the modified content if all sections were applied
+    return modified_content if all_done else None
 
 def do_replace(fname, content, hunk):
     """Apply a hunk to content with various strategies."""
     content = normalize_line_endings(content)
     
-    # Normalize indentation in the hunk before applying
+    # Normalize indentation in the hunk
     normalized_hunk = []
     for line in hunk:
         if line and len(line) > 1 and line[0] in ' +-':
@@ -392,37 +300,16 @@ def do_replace(fname, content, hunk):
         return after_text
     
     try:
-        # Try direct application first
-        result = directly_apply_hunk(content, hunk)
+        # Try direct application first - exact match
+        result = directly_apply_hunk(content, normalized_hunk)
         if result:
             return result
         
-        # Try with normalized hunk
-        normalized_hunk = normalize_hunk(hunk)
-        if normalized_hunk != hunk:
-            result = directly_apply_hunk(content, normalized_hunk)
-            if result:
-                return result
-        
-        # Try partial application with context
-        result = apply_partial_hunk(content, hunk)
+        # Try with more conservative partial application
+        result = apply_partial_hunk(content, normalized_hunk)
         if result:
             return result
         
-        # Last resort: try line-by-line matching with fuzzy comparison
-        before_lines, after_lines = hunk_to_before_after(hunk, lines=True)
-        if before_lines:
-            content_lines = content.splitlines(True)
-            
-            for i in range(len(content_lines) - len(before_lines) + 1):
-                content_block = ''.join(content_lines[i:i+len(before_lines)])
-                
-                # Use fuzzy matching for the block
-                similarity = difflib.SequenceMatcher(None, content_block.strip(), ''.join(before_lines).strip()).ratio()
-                if similarity >= 0.8:  # 80% similarity threshold
-                    new_content = content_lines[:i] + after_lines + content_lines[i+len(before_lines):]
-                    return ''.join(new_content)
-    
     except SearchTextNotUnique:
         raise
     except Exception:
