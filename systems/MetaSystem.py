@@ -256,7 +256,7 @@ def build_system():
     # Node: MetaAgent
     # Description: Meta Agent
     def meta_agent_function(state: Dict[str, Any]) -> Dict[str, Any]:  
-        llm = LargeLanguageModel(temperature=0.4, wrapper="google", model_name="gemini-2.0-flash")
+        llm = LargeLanguageModel(temperature=0.2, wrapper="google", model_name="gemini-2.0-flash")
         llm.bind_tools(list(tools.keys()))
 
         context_length = 8*2 # even

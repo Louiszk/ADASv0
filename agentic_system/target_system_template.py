@@ -27,8 +27,8 @@ def build_system():
     # No edges or conditional edges defined yet
 
     # ===== Entry/Exit Configuration =====
-    # graph.set_entry_point("Node1")
-    # graph.set_finish_point("Node2")
+    # graph.set_entry_point("Node1") # That's equivalent to graph.add_edge(START, "Node1")
+    # graph.set_finish_point("Node2") # That's equivalent to graph.add_edge("Node2", END)
 
     # ===== Compilation =====
     workflow = graph.compile()

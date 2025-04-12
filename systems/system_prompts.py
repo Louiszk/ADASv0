@@ -3,9 +3,9 @@ udiff_prompt = """
 These unified diffs are similar to unified diffs that `diff -U0` would produce.
 
 Don't include file paths like --- a/agentic_system/main.py\n+++ b/agentic_system/main.py\n
-Don't include timestamps, start right away with `@@ ... @@`
+Don't include timestamps, start right away with `@@ @@`
 
-Start each hunk of changes with a `@@ ... @@` line.
+Start each hunk of changes with a `@@ @@` line.
 Don't include line numbers like `diff -U0` does.
 The user's patch tool doesn't need them.
 
@@ -143,7 +143,7 @@ The ChangeCode tool allows you to modify the target system file using unified di
 ''' + udiff_prompt + '''
 
 For example, this is a valid unified diff for the ChangeCode tool:
-@@ ... @@
+@@ @@
 -    # ===== Node Definitions =====
 +    # ===== Node Definitions =====
 +    # Node: ProcessorNode
