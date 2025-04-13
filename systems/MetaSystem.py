@@ -198,7 +198,7 @@ def build_system():
                 file_message = ToolMessage(
                     content=update_result,
                     name="ExtractedCode",
-                    tool_call_id="auto_extracted"
+                    tool_call_id=f"auto_extracted_{iteration}"
                 )
 
         tool_messages, tool_results = execute_tool_calls(response)
