@@ -102,7 +102,8 @@ When you provide these Python functions, use the following naming conventions:
 - Routers: Always name with a "_router" suffix (e.g., "agent_node_router", "process_node_router")
 
 For routers, always add the source node name to the function's docstring.
-Always place your code inside a Python markdown code block:
+Always place your code inside a Python markdown code block.
+Do NOT include triple backticks (```) anywhere within the code content itself, or parsing will fail.
 
 ```python
 def example_function():
