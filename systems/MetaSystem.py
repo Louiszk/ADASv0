@@ -257,8 +257,8 @@ def build_system():
     def set_endpoints(entry_point: str = None, finish_point: str = None) -> str:
         """
             Sets the entry point (start node) and/or finish point (end node) of the workflow.
-                entry_point: Name of the node to set as entry point
-                finish_point: Name of the node to set as finish point
+                entry_point: Name of the node to set as entry point; equivalent to graph.add_edge(START, entry_point)
+                finish_point: Name of the node to set as finish point; equivalent to graph.add_edge(finish_point, END)
         """
         results = []
     
@@ -330,7 +330,7 @@ def build_system():
         except Exception as e:
             error_message = f"\n\n Error while testing the system:\n{str(e)}"
     
-        result = all_outputs if all_outputs else {}
+        result = "\n".join([f"State {i}: " + str(out) for i, out in enumerate(all_outputs)]) if all_outputs else {}
     
         test_result = f"Test completed.\n <TestResults>\n{result}\n</TestResults>"
     
@@ -459,7 +459,7 @@ def build_system():
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
-            updated_messages.append(HumanMessage(content="You made no tool calls."))
+            updated_messages.append(HumanMessage(content="You made no valid function calls."))
     
                 # Ending the design if the last test ran without errors (this does not check accuracy)
         design_completed = False
@@ -475,7 +475,7 @@ def build_system():
                         test_passed_recently = False
                         break
     
-            if test_passed_recently or iteration > 60:
+            if test_passed_recently or iteration > 58:
                 design_completed = True
             else:
                  for i, tm in enumerate(tool_messages):

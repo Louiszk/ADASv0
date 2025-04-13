@@ -26,6 +26,9 @@ def run_mmlupro_benchmark_in_sandbox(session, system_name):
     if "not found" in str(session.execute_command("pip show datasets")):
         session.execute_command("pip install datasets")
     
+    if "not found" in str(session.execute_command("pip show sympy")):
+        session.execute_command("pip install sympy")
+    
     # Run the benchmark
     command = f"python3 /sandbox/workspace/{base_path}/run_mmlupro_bench.py --system=\"{system_name}\""
     print(f"Executing command: {command}")

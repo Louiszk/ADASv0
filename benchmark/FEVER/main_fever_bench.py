@@ -24,6 +24,12 @@ def run_fever_benchmark_in_sandbox(session, system_name, dataset_name="fever_sub
     
     if "not found" in str(session.execute_command("pip show beautifulsoup4")):
         session.execute_command("pip install beautifulsoup4")
+
+    if "not found" in str(session.execute_command("pip show duckduckgo-search")):
+        session.execute_command("pip install duckduckgo-search")
+
+    if "not found" in str(session.execute_command("pip show googlesearch-python")):
+        session.execute_command("pip install googlesearch-python")
     
     # Run the benchmark
     command = f"python3 /sandbox/workspace/{base_path}/run_fever_bench.py --system=\"{system_name}\""
