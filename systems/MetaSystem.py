@@ -81,8 +81,6 @@ def build_system():
         try:
             with open(target_system_file, 'r') as f:
                 source_code = f.read()
-            if "set_entry_point" not in source_code or "set_finish_point" not in source_code:
-                raise Exception("You must set an entry point and finish point before testing")
     
             namespace = {}
             exec(source_code, namespace, namespace)
@@ -114,7 +112,7 @@ def build_system():
         except Exception as e:
             error_message = f"\n\n Error while testing the system:\n{str(e)}"
     
-        result = all_outputs if all_outputs else {}
+        result = "\n".join([f"State {i}: " + str(out) for i, out in enumerate(all_outputs)]) if all_outputs else {}
     
         test_result = f"Test completed.\n <TestResults>\n{result}\n</TestResults>"
     
@@ -151,19 +149,7 @@ def build_system():
         """
             Finalizes the system design process.
         """
-        try:
-            with open(target_system_file, 'r') as f:
-                content = f.read()
-
-            if "set_entry_point" not in content or "set_finish_point" not in content:
-                return "Error finalizing system: You must set an entry point and finish point before finalizing"
-
-            return "Ending the design process..."
-        except Exception as e:
-            error_msg = f"Error finalizing system: {repr(e)}"
-            print(error_msg)
-            return error_msg
-    
+        return "Ending the design process..."
 
     tools["EndDesign"] = tool(runnable=end_design, name_or_callable="EndDesign")
 
@@ -211,7 +197,7 @@ def build_system():
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
-            updated_messages.append(HumanMessage(content="You made no tool calls."))
+            updated_messages.append(HumanMessage(content="You made no valid function calls."))
 
             
         # Ending the design if the last test ran without errors (this does not check accuracy)
@@ -228,7 +214,7 @@ def build_system():
                         test_passed_recently = False
                         break
 
-            if test_passed_recently or iteration > 60:
+            if test_passed_recently or iteration >= 58:
                 design_completed = True
             else:
                  for i, tm in enumerate(tool_messages):
