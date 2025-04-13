@@ -15,7 +15,7 @@ Tools are standalone functions registered with the system that agents can call.
 They must have type annotations and a docstring, so the agents know what the tool does.
 ```python
 # Example
-def tool_function(arg1: str, arg2: int, ...) -> List[Any]:
+def first_tool(arg1: str, arg2: int, ...) -> List[Any]:
     """Tool to retrieve values from an API
     
     [descriptions of the inputs]
@@ -78,7 +78,8 @@ There are only these two possibilities to run tools. You can not call the tool f
 2. **Conditional Edges**: Branching logic from a source node using router functions:
 ```python
 # Example
-def router_function(state):
+def agent_node_router(state):
+    """Source: agent_node"""
     # Analyze state and return next node name
     last_message = str(state["messages"][-1])
     if "error" in last_message.lower():
@@ -91,6 +92,23 @@ def router_function(state):
 - Default state includes {'messages': 'List[Any]'} for communication
 - Custom state attributes can be defined with type annotations
 - State is accessible to all components throughout execution
+
+## Naming Conventions
+Never try to update the whole file at once, only make changes to the individual components (tools, nodes, routers).
+To create or modify a tool, node or router, simply provide the complete function code inside a Python markdown code block.
+When you provide these Python functions, use the following naming conventions:
+- Nodes: Always name with a "_node" suffix (e.g., "agent_node", "process_node")
+- Tools: Always name with a "_tool" suffix (e.g., "calculator_tool", "search_tool")
+- Routers: Always name with a "_router" suffix (e.g., "agent_node_router", "process_node_router")
+
+For routers, always add the source node name to the function's docstring.
+Always place your code inside a Python markdown code block:
+
+```python
+def example_function():
+    # Your code here
+    pass
+```
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.
 

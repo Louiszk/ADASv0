@@ -10,7 +10,7 @@ import json
 import contextlib
 from typing import Dict, List, Any, Optional, Union
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage, AIMessage, trim_messages
-from agentic_system.large_language_model import LargeLanguageModel, execute_tool_calls
+from agentic_system.large_language_model import LargeLanguageModel, execute_tool_calls, extract_code_blocks, extract_function_info, extract_path_map, extract_router_source
 from agentic_system.virtual_agentic_system import VirtualAgenticSystem
 from agentic_system.materialize import materialize_system
 from systems import system_prompts
@@ -126,83 +126,6 @@ def create_meta_system():
         "Sets state attributes with type annotations for the target system",
         set_state_attributes
     )
-    
-    def add_node(name: str, description: str, function_code: str) -> str:
-        """
-            Creates a node in the target system.
-                function_code: Python code defining the node's processing function
-        """
-        try:
-            node_function = target_system.get_function(function_code)
-
-            target_system.create_node(name, node_function, description, function_code)
-            return f"Node '{name}' created successfully"
-        except Exception as e:
-            return f"Error creating node: {repr(e)}"
-    
-    meta_system.create_tool(
-        "CreateNode",
-        "Creates a node in the target system with custom function implementation",
-        add_node
-    )
-    
-    def add_tool(name: str, description: str, function_code: str) -> str:
-        """
-            Creates a tool in the target system that can be bound to agents and invoked by functions.
-                function_code: Python code defining the tool's function including type annotations and a clear docstring
-        """
-        try:
-            tool_function = target_system.get_function(function_code)
-            
-            target_system.create_tool(name, description, tool_function, function_code)
-            return f"Tool '{name}' created successfully"
-        except Exception as e:
-            return f"Error creating tool: {repr(e)}"
-    
-    meta_system.create_tool(
-        "CreateTool",
-        "Creates a tool in the target system that can be used by nodes",
-        add_tool
-    )
-    
-    def edit_component(component_type: str, name: str, new_function_code: str, new_description: Optional[str] = None) -> str:
-        """
-            Modifies an existing node or tool's implementation by providing a new_function_code. This does not allow renaming.
-                component_type: Type of component to edit ('node' or 'tool')
-                name: Name of the component to edit
-                new_function_code: New Python code for the component's function
-        """
-        try:
-            if component_type.lower() not in ["node", "tool"]:
-                return f"Error: Invalid component type '{component_type}'. Must be 'node' or 'tool'."
-            
-            if name not in target_system.nodes and name not in target_system.tools:
-                return f"Error: '{name}' not found"
-            
-            new_function = target_system.get_function(new_function_code)
-                
-            if component_type.lower() == "node":
-                if name not in target_system.nodes:
-                    return f"Error: Node '{name}' not found"
-                    
-                target_system.edit_node(name, new_function, new_description, new_function_code)
-                return f"Node '{name}' updated successfully"
-                
-            else:
-                if name not in target_system.tools:
-                    return f"Error: Tool '{name}' not found"
-                    
-                target_system.edit_tool(name, new_function, new_description, new_function_code)
-                return f"Tool '{name}' updated successfully"
-                
-        except Exception as e:
-            return f"Error editing {component_type}: {repr(e)}"
-        
-    meta_system.create_tool(
-        "EditComponent",
-        "Edits a node or tool's implementation",
-        edit_component
-    )
 
     def add_edge(source: str, target: str) -> str:
         """
@@ -220,49 +143,6 @@ def create_meta_system():
         "AddEdge",
         "Adds an edge between nodes in the target system",
         add_edge
-    )
-    
-    def add_conditional_edge(source: str, condition_code: str) -> str:
-        """
-            Adds a conditional edge from a source node.
-                source: Name of the source node
-                condition_code: Python code for the condition function that returns the target node
-        """
-        try:
-            condition_function = target_system.get_function(condition_code)
-            
-            # Extract potential node names from string literals in the code (better visualization)
-            string_pattern = r"['\"]([^'\"]*)['\"]"
-            potential_nodes = set(re.findall(string_pattern, condition_code))
-            
-            path_map = None
-            auto_path_map = {}
-            for node_name in potential_nodes:
-                if node_name in target_system.nodes:
-                    auto_path_map[node_name] = node_name
-            
-            if auto_path_map:
-                path_map = auto_path_map
-            
-            target_system.create_conditional_edge(
-                source = source, 
-                condition = condition_function,
-                condition_code = condition_code,
-                path_map = path_map
-            )
-            
-            result = f"Conditional edge from '{source}' added successfully"
-            if path_map:
-                result += f" with path map to {list(path_map.values())}"
-                
-            return result
-        except Exception as e:
-            return f"Error adding conditional edge: {repr(e)}"
-    
-    meta_system.create_tool(
-        "AddConditionalEdge",
-        "Adds a conditional edge in the target system.",
-        add_conditional_edge
     )
 
     def set_endpoints(entry_point: str = None, finish_point: str = None) -> str:
@@ -459,26 +339,110 @@ def create_meta_system():
                 allow_partial=False    
             )
         except Exception as e:
-             print(f"Error during message trimming: {e}")
+            print(f"Error during message trimming: {e}")
 
         code_message = f"(Iteration {iteration}) Current Code:\n" + materialize_system(target_system, output_dir=None)
 
         full_messages = [SystemMessage(content=system_prompts.meta_agent), initial_message] + trimmed_messages + [HumanMessage(content=code_message)]
         print([getattr(last_msg, 'type', 'Unknown') for last_msg in full_messages])
         response = llm.invoke(full_messages)
-        
+
         if not hasattr(response, 'content') or not response.content:
             response.content = "I will call the necessary tools."
 
+        response_content = " ".join(response.content) if isinstance(response.content, list) else response.content
+        
+        # Extract code blocks from response
+        code_blocks = extract_code_blocks(response_content)
+        function_messages = []
+        
+        # Process each code block
+        for block_number, code_block in enumerate(code_blocks):
+            try:
+                function_name, function_type = extract_function_info(code_block)
+                
+                if function_name:
+                    # Handle function based on type
+                    if function_type == "node":
+                        node_function = target_system.get_function(code_block)
+                        description = f"Node created from response"
+                        
+                        if function_name in target_system.nodes:
+                            # Update existing node
+                            target_system.edit_node(function_name, node_function, description, code_block)
+                            result = f"Node '{function_name}' updated successfully"
+                        else:
+                            # Create new node
+                            target_system.create_node(function_name, node_function, description, code_block)
+                            result = f"Node '{function_name}' created successfully"
+                    
+                    elif function_type == "tool":
+                        tool_function = target_system.get_function(code_block)
+                        description = f"Tool created from response"
+                        
+                        if function_name in target_system.tools:
+                            # Update existing tool
+                            target_system.edit_tool(function_name, tool_function, description, code_block)
+                            result = f"Tool '{function_name}' updated successfully"
+                        else:
+                            # Create new tool
+                            target_system.create_tool(function_name, description, tool_function, code_block)
+                            result = f"Tool '{function_name}' created successfully"
+                    
+                    elif function_type == "router":
+                        router_function = target_system.get_function(code_block)
+                        source_node = extract_router_source(code_block)
+                        if source_node and source_node in target_system.nodes:
+                            path_map = extract_path_map(code_block, target_system.nodes)
+                            
+                            # Delete existing conditional edge if present
+                            if source_node in target_system.conditional_edges:
+                                target_system.delete_conditional_edge(source_node)
+                            
+                            # Create new conditional edge
+                            target_system.create_conditional_edge(
+                                source=source_node,
+                                condition=router_function,
+                                condition_code=code_block,
+                                path_map=path_map
+                            )
+                            
+                            result = f"Conditional edge from '{source_node}' added using router '{function_name}'"
+                            if path_map:
+                                result += f" with path map to {list(path_map.values())}"
+                        else:
+                            result = f"Error: Router '{function_name}' source node not found or not specified"
+                    
+                    else:
+                        result = f"Warning: Function '{function_name}' has unclear purpose. Use _node, _tool, or _router naming convention."
+                    
+                    # Create tool message to mimic old behavior
+                    function_messages.append(ToolMessage(
+                        content=result,
+                        name="ParsedFunction",
+                        tool_call_id=f"auto_{function_type}_{function_name}_{iteration}{block_number}"
+                    ))
+                
+            except Exception as e:
+                error_msg = f"Error processing function: {repr(e)}"
+                function_messages.append(ToolMessage(
+                    content=error_msg,
+                    name="ParsedFunction",
+                    tool_call_id=f"auto_function_error_{iteration}{block_number}"
+                ))
+        
+        # Execute regular tool calls
         tool_messages, tool_results = execute_tool_calls(response)
+        tool_messages.extend(function_messages)
 
+        # Update messages with the response and all tool messages
         updated_messages = messages + [response]
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
-            updated_messages.append(HumanMessage(content="You made no valid function calls."))
+            updated_messages.append(HumanMessage(content="You made no valid function calls or code blocks."))
 
-                # Ending the design if the last test ran without errors (this does not check accuracy)
+        # Ending the design if the last test ran without errors
         design_completed = False
         if tool_results and 'EndDesign' in tool_results and "Ending the design process" in str(tool_results['EndDesign']):
             test_passed_recently = False
@@ -495,9 +459,9 @@ def create_meta_system():
             if test_passed_recently or iteration > 58:
                 design_completed = True
             else:
-                 for i, tm in enumerate(tool_messages):
-                     if tm.name == 'EndDesign':
-                         tm.content += "Error: Cannot finalize design. Please run successful tests using TestSystem first."
+                for i, tm in enumerate(tool_messages):
+                    if tm.name == 'EndDesign':
+                        tm.content += "Error: Cannot finalize design. Please run successful tests using TestSystem first."
 
         new_state = {"messages": updated_messages, "design_completed": design_completed}
         return new_state
