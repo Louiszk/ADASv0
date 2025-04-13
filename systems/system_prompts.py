@@ -9,6 +9,7 @@ with triple backticks and the python language specifier:
 The code you provide should be the COMPLETE file content, as it will entirely replace the existing content of the target file.
 Do not get lazy, do not remove important parts of the implementation.
 Do not use any placeholders.
+Do NOT include triple backticks (```) anywhere within the code content itself, or parsing will fail.
 
 Make sure your file includes:
 - All necessary imports at the top
