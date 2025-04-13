@@ -1,6 +1,12 @@
 file_content_prompt = """
-The ChangeCode tool expects the complete file_content as a single string. 
-The content you provide will completely replace the existing content of the target file.
+When you need to provide or update code for the target system, use a Markdown code block 
+with triple backticks and the python language specifier:
+
+```python
+# Your complete code here
+```
+
+The code you provide should be the COMPLETE file content, as it will entirely replace the existing content of the target file.
 Do not get lazy, do not remove important parts of the implementation.
 Do not use any placeholders.
 
@@ -129,8 +135,7 @@ graph.add_conditional_edges("SourceNode", router_function)
 - Custom state attributes can be defined with type annotations
 - State is accessible to all components throughout execution
 
-### Using the ChangeCode tool:
-The ChangeCode tool allows you to modify the target system file.
+## Providing System Code:
 ''' + file_content_prompt + '''
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.
@@ -151,10 +156,6 @@ For each step of the implementation process:
 - Analyze what has been implemented so far in the current code and what needs to be done next
 - Think about which of the available tools would be most appropriate to use next
 - Carefully consider the implications of using that tool
-
-Make sure to properly escape backslashes, quotes and other special characters inside tool call parameters to avoid syntax errors or unintended behavior.
-The tools you call will be executed directly in the order you specify.
-Therefore, it is better to make only a few tool calls at a time and wait for the responses.
 
 Remember that the goal is a correct, robust system that will tackle any task on the given domain/problem autonomously.
 You are a highly respected expert in your field. Do not make simple and embarrassing mistakes.

@@ -1,6 +1,6 @@
 # MetaSystem System Configuration
 # Total nodes: 1
-# Total tools: 4
+# Total tools: 3
 
 from langgraph.graph import StateGraph
 from langchain_core.tools import tool
@@ -81,7 +81,7 @@ def build_system():
         try:
             with open(target_system_file, 'r') as f:
                 source_code = f.read()
-    
+
             namespace = {}
             exec(source_code, namespace, namespace)
     
@@ -124,25 +124,6 @@ def build_system():
 
     tools["TestSystem"] = tool(runnable=test_system, name_or_callable="TestSystem")
 
-    # Tool: ChangeCode
-    # Description: Updates the target system file with the provided content
-    def change_code(file_content: str) -> str:
-        """
-            Updates the target system file with the provided content.
-                file_content: The complete content to write to the target system file.
-        """
-        try:
-            with open(target_system_file, 'w') as f:
-                f.write(file_content)
-            print("Successfully updated the system file.")
-            return "Successfully updated the system file."
-        except Exception as e:
-            error_msg = f"Error updating system file: {repr(e)}"
-            print(error_msg)
-            return error_msg
-
-    tools["ChangeCode"] = tool(runnable=change_code, name_or_callable="ChangeCode")
-
     # Tool: EndDesign
     # Description: Finalizes the system design process
     def end_design() -> str:
@@ -175,30 +156,61 @@ def build_system():
                 allow_partial=False
             )
         except Exception as e:
-             print(f"Error during message trimming: {e}")
+            print(f"Error during message trimming: {e}")
     
         # Read the current content of the target system file
         with open(target_system_file, 'r') as f:
             code_content = f.read()
 
         code_message = f"(Iteration {iteration}) Current Code:\n" + code_content
-    
+
         full_messages = [SystemMessage(content=system_prompts.meta_agent), initial_message] + trimmed_messages + [HumanMessage(content=code_message)]
         print([getattr(last_msg, 'type', 'Unknown') for last_msg in full_messages])
         response = llm.invoke(full_messages)
 
         if not hasattr(response, 'content') or not response.content:
             response.content = "I will call the necessary tools."
+            
+        # Extract code from markdown blocks in the response
+        file_message = None
+        response_content = " ".join(response.content) if isinstance(response.content, list) else response.content
+
+        backtick_count = response_content.count("```")
+        if backtick_count > 2 or backtick_count == 1:
+            error_msg = f"Error: Found {backtick_count} instances of triple backticks, expected 2. Provide only a single code block."
+            file_message = ToolMessage(
+                content=error_msg,
+                name="ExtractedCode",
+                tool_call_id="auto_extracted"
+            )
+        else:
+            pattern = r'```\s*python\s*([\s\S]*?)```'
+            match = re.search(pattern, response_content, re.IGNORECASE)
+            if match:
+                extracted_code = match.group(1).strip()
+                try:
+                    with open(target_system_file, 'w', encoding='utf-8') as f:
+                        f.write(extracted_code)
+
+                    update_result = "Successfully updated the system file."
+                except Exception as e:
+                    update_result = f"Error updating system file: {repr(e)}"
+                file_message = ToolMessage(
+                    content=update_result,
+                    name="ExtractedCode",
+                    tool_call_id="auto_extracted"
+                )
 
         tool_messages, tool_results = execute_tool_calls(response)
-    
+        if file_message:
+            tool_messages.append(file_message)
+
         # Update messages with the response and tool messages
         updated_messages = messages + [response]
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
             updated_messages.append(HumanMessage(content="You made no valid function calls."))
-
             
         # Ending the design if the last test ran without errors (this does not check accuracy)
         design_completed = False
@@ -217,9 +229,9 @@ def build_system():
             if test_passed_recently or iteration >= 58:
                 design_completed = True
             else:
-                 for i, tm in enumerate(tool_messages):
-                     if tm.name == 'EndDesign':
-                         tm.content += "Error: Cannot finalize design. Please run successful tests using TestSystem first."
+                for i, tm in enumerate(tool_messages):
+                    if tm.name == 'EndDesign':
+                        tm.content += "Error: Cannot finalize design. Please run successful tests using TestSystem first."
 
         new_state = {"messages": updated_messages, "design_completed": design_completed}
         return new_state
