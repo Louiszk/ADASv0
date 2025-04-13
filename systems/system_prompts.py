@@ -1,28 +1,70 @@
 # modified from https://github.com/Aider-AI/aider/blob/main/aider/coders/udiff_prompts.py
 udiff_prompt = """
-These unified diffs are similar to unified diffs that `diff -U0` would produce.
+- Generate diffs similar to `diff -U0`.
+- Start *each* block of changes (hunk) with a `@@ @@` line.
+- **Do not** include file paths (`--- a/file`, `+++ b/file`).
+- **Do not** include timestamps or line numbers in the `@@ @@` line.
 
-Don't include file paths like --- a/agentic_system/main.py\n+++ b/agentic_system/main.py\n
-Don't include timestamps, start right away with `@@ @@`
+- Use `-` for lines to be **removed**.
+- Use `+` for lines to be **added**.
+- Use ` ` for **context lines**.
 
-Start each hunk of changes with a `@@ @@` line.
-Don't include line numbers like `diff -U0` does.
-The user's patch tool doesn't need them.
+- Each diff hunk (a block starting with `@@ @@`) MUST address only **one specific, localized change**.
+- **NEVER generate large hunks** that attempt to modify multiple unrelated parts of the file simultaneously.
 
-The user's patch tool needs CORRECT patches that apply cleanly against the current contents of the file!
-Think carefully.
-Make sure you mark all lines that need to be removed as `-` lines.
-Make sure you mark all new lines with `+`.
-Context lines must begin with ` `.
+- The patching tool requires that ALL context lines within a single `@@ @@` hunk must exactly match a contiguous block of lines currently present in the file.
 
-Correct 4 space indentation matters a lot in the diffs!
+- If you need to change code in two different locations, **use two separate `@@ @@` hunks.** Do *not* try to combine them into one large hunk with context lines spanning both areas.
+- Inside a small, targeted hunk, first show the context (` ` lines), then the lines to remove (`-` lines), then the lines to add (`+` lines).
 
-Prefer making **small, targeted diffs** that modify only one logical part of the code at a time.
-First remove the old code with `-` lines and then add the new code with `+` lines.
-Never generate large hunks that attempt to change the whole file at once!
-Start a new hunk for each section of the file that needs changes.
+- Correct 4-space Python indentation is crucial for all lines.
+- Ensure the context (` `) lines and removed (`-`) lines **exactly match** the current code, including indentation and whitespace.
+- Always check the *current* code provided to you before generating a diff to avoid duplication or referencing code that no longer exists.
 
-Always check the current code to avoid duplication at all costs.
+Think carefully about the precise context needed for *each individual change* and create a separate `@@ @@` hunk for it. This is the most reliable way to ensure your changes apply correctly.
+
+# Correct Examples:
+# Example 1: Simple addition with context before
+@@ @@
+     # Define state attributes for the system
+     class AgentState(TypedDict):
+         messages: List[Any]
++        attr1: str
++        attr2: float
+
+# Example 2: Replacing content with context before
+@@ @@
+     graph = StateGraph(AgentState)
+     tools = {}
+-    # ===== Tool Definitions =====
+-    # No tools defined yet
++    # ===== Tool Definitions =====
++    @tool
++    def my_tool(input: str) -> str:
++        # ... tool logic ...
++        return "result"
++    tools["my_tool"] = my_tool
+
+# Incorrect Examples:
+# Example 1: Context lines between additions (will cause duplication)
+@@ @@
+     class AgentState(TypedDict):
+         messages: List[Any]
++        attr1: str
+         # Comment describing attributes
++        attr2: float
+
+# Example 2: Context lines between deletion and addition (will cause duplication)
+@@ @@
+     graph = StateGraph(AgentState)
+     tools = {}
+-    # ===== Tool Definitions =====
+     # This comment stays the same
+-    # No tools defined yet
++    # ===== New Tool Definitions =====
++    @tool
++    def my_tool(input: str) -> str:
++        return "result"
 """
 
 chain_of_thought = """
@@ -143,24 +185,6 @@ graph.add_conditional_edges("SourceNode", router_function)
 ### Using the ChangeCode tool:
 The ChangeCode tool allows you to modify the target system file using unified diffs.
 ''' + udiff_prompt + '''
-
-For example, this is a valid unified diff for the ChangeCode tool:
-@@ @@
--    # ===== Node Definitions =====
-+    # ===== Node Definitions =====
-+    # Node: ProcessorNode
-+    # Description: Processes input data and returns a result
-+    def processor_node(state):
-+        # Process the input data
-+        input_data = state.get("input_data", "")
-+        result = input_data.upper()
-+        
-+        # Update state with the result
-+        new_state = state.copy()
-+        new_state["result"] = result
-+        return new_state
-+    
-+    graph.add_node("ProcessorNode", processor_node)
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.
 

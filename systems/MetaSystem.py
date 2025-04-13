@@ -82,8 +82,6 @@ def build_system():
         try:
             with open(target_system_file, 'r') as f:
                 source_code = f.read()
-            if "set_entry_point" not in source_code or "set_finish_point" not in source_code:
-                raise Exception("You must set an entry point and finish point before testing")
     
             namespace = {}
             exec(source_code, namespace, namespace)
@@ -115,7 +113,7 @@ def build_system():
         except Exception as e:
             error_message = f"\n\n Error while testing the system:\n{str(e)}"
     
-        result = all_outputs if all_outputs else {}
+        result = "\n".join([f"State {i}: " + str(out) for i, out in enumerate(all_outputs)]) if all_outputs else {}
     
         test_result = f"Test completed.\n <TestResults>\n{result}\n</TestResults>"
     
@@ -132,73 +130,109 @@ def build_system():
     def change_code(diff: str) -> str:
         """
             Modifies the target system file using a unified diff.
-                diff: A unified diff string representing the changes to make to the target system file.
+                diff: A unified diff string representing the changes to make to the target system file, consisting of one or more hunks.
         """
         try:
-            from agentic_system.udiff import find_diffs, do_replace, hunk_to_before_after, no_match_error, SearchTextNotUnique
+            from agentic_system.udiff import (find_diffs, do_replace,
+                                            hunk_to_before_after, no_match_error,
+                                            not_unique_error, SearchTextNotUnique)
 
-            # Check for build_system() modifications
             if "+def build_system()" in diff or "-def build_system()" in diff:
                 error_msg = "Error: Modifications to build_system() function signature are not allowed."
-                print(error_msg)
                 return error_msg
 
-            with open(target_system_file, 'r') as f:
-                content = f.read()
-
             edits = find_diffs(diff)
-
             if not edits:
-                print(no_match_error)
                 return no_match_error
 
-            success = False
-            failed_hunks = []
+            invalid_hunk_found = False
+            structure_error_msg = "Error: Invalid hunk structure detected.\n"
+            for i, (_, hunk) in enumerate(edits):
+                in_change = False
+                seen_context_after_change = False
+                hunk_lines_to_process = hunk[1:] if hunk and hunk[0].startswith("@@ ") else hunk
+                for line_num, line in enumerate(hunk_lines_to_process):
+                    if not line: continue
+                    op = line[0]
+                    if op in '+-':
+                        if seen_context_after_change and in_change:
+                            invalid_hunk_found = True
+                            structure_error_msg += f"Hunk #{i+1} is invalid: Context lines found between addition/deletion lines.\n"
+                            structure_error_msg += "This could cause content duplication. Split the changes into multiple smaller hunks.\n"
+                            break
+                        in_change = True
+                        seen_context_after_change = False
+                    elif op == ' ' and in_change:
+                        seen_context_after_change = True
+                if invalid_hunk_found:
+                    break
+            
+            if invalid_hunk_found:
+                return structure_error_msg
+
+            with open(target_system_file, 'r') as f:
+                original_content = f.read()
+                current_content = original_content
+
+            all_hunks_applied = True
+            failed_hunks_details = []
 
             for i, (_, hunk) in enumerate(edits):
                 try:
-                    # Apply the diff
-                    new_content = do_replace(target_system_file, content, hunk)
-                    if new_content is not None:
-                        content = new_content
-                        success = True
+                    result_content = do_replace(target_system_file, current_content, hunk)
+                    if result_content is not None:
+                        current_content = result_content
                     else:
-                        # Failed hunk
+                        all_hunks_applied = False
                         before_text, _ = hunk_to_before_after(hunk)
-                        failed_hunks.append({
+                        failed_hunks_details.append({
+                            "hunk_index": i + 1,
                             "before_text": before_text[:150] + ("..." if len(before_text) > 150 else ""),
                             "hunk_lines": len(hunk),
                             "error": "no_match"
                         })
-                        # Stop after first failure
                         break
                 except SearchTextNotUnique:
+                    all_hunks_applied = False
                     before_text, _ = hunk_to_before_after(hunk)
-                    failed_hunks.append({
+                    failed_hunks_details.append({
+                        "hunk_index": i + 1,
                         "before_text": before_text[:150] + ("..." if len(before_text) > 150 else ""),
                         "hunk_lines": len(hunk),
                         "error": "not_unique"
                     })
-                    # Stop after first failure
+                    break
+                except Exception as e_inner:
+                    all_hunks_applied = False
+                    before_text, _ = hunk_to_before_after(hunk)
+                    failed_hunks_details.append({
+                        "hunk_index": i + 1,
+                        "before_text": before_text[:150] + ("..." if len(before_text) > 150 else ""),
+                        "hunk_lines": len(hunk),
+                        "error": f"unexpected: {repr(e_inner)}"
+                    })
                     break
 
-            if not success:
-                error_msg = f"Error: Failed to apply diffs to the system.\n"
-
-                for i, failed in enumerate(failed_hunks):
-                    if failed.get("error") == "not_unique":
-                        error_msg += f"Hunk #{i+1} matched multiple locations:\n```\n{failed['before_text']}\n```\n"
+            if all_hunks_applied:
+                with open(target_system_file, 'w') as f:
+                    f.write(current_content)
+                return "Successfully applied all diff hunks to the system."
+            else:
+                error_msg = "Error: Failed to apply one or more diff hunks.\n"
+                for failed in failed_hunks_details:
+                    error_type = failed.get("error")
+                    hunk_preview = failed.get('before_text', 'N/A')
+                    error_msg += f"Hunk #{failed['hunk_index']} ({failed['hunk_lines']} lines) failed. Error type: {error_type}\n"
+                    error_msg += f"Context near failure:\n```diff\n- {hunk_preview}...\n```\n"
+                    if error_type == "not_unique":
+                        error_msg += not_unique_error + "\n"
+                    elif error_type == "no_match":
+                        error_msg += no_match_error + "\n"
                     else:
-                        error_msg += f"Hunk #{i+1} failed to match the current code:\n```\n{failed['before_text']}\n```\n"
-
-                error_msg += "Try again with a smaller, more targeted diff."
-                print(error_msg)
+                        error_msg += "Unexpected error during diff application.\n"
+                error_msg += "No changes were saved to the file. Please provide a corrected diff."
                 return error_msg
 
-            with open(target_system_file, 'w') as f:
-                f.write(content)
-
-            return "Successfully applied diff to the system."
         except Exception as e:
             return f"Error applying diff: {repr(e)}"
 
@@ -234,18 +268,8 @@ def build_system():
         """
             Finalizes the system design process.
         """
-        try:
-            with open(target_system_file, 'r') as f:
-                content = f.read()
+        return "Ending the design process..."
 
-            if "set_entry_point" not in content or "set_finish_point" not in content:
-                return "Error finalizing system: You must set an entry point and finish point before finalizing"
-
-            return "Ending the design process..."
-        except Exception as e:
-            error_msg = f"Error finalizing system: {repr(e)}"
-            print(error_msg)
-            return error_msg
     
 
     tools["EndDesign"] = tool(runnable=end_design, name_or_callable="EndDesign")
@@ -293,7 +317,7 @@ def build_system():
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
-            updated_messages.append(HumanMessage(content="You made no tool calls."))
+            updated_messages.append(HumanMessage(content="You made no valid function calls."))
     
         # Ending the design if the last test ran without errors (this does not check accuracy)
         design_completed = False

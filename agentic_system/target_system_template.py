@@ -1,5 +1,5 @@
 # Imports
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, START, END
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
 from typing import Dict, List, Any, Callable, Optional, Union, TypeVar, Generic, Tuple, Set, TypedDict
@@ -25,10 +25,6 @@ def build_system():
 
     # ===== Edge Definitions =====
     # No edges or conditional edges defined yet
-
-    # ===== Entry/Exit Configuration =====
-    # graph.set_entry_point("Node1") # That's equivalent to graph.add_edge(START, "Node1")
-    # graph.set_finish_point("Node2") # That's equivalent to graph.add_edge("Node2", END)
 
     # ===== Compilation =====
     workflow = graph.compile()
