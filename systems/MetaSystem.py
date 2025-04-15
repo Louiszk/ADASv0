@@ -178,7 +178,7 @@ def build_system():
         backtick_count = response_content.count("```")
         if backtick_count > 2 or backtick_count == 1:
             error_msg = f"Error: Found {backtick_count} instances of triple backticks, expected 2. Provide only a single code block. File not updated."
-            file_message = ToolMessage(
+            file_message = HumanMessage(
                 content=error_msg,
                 name="ExtractedCode",
                 tool_call_id="auto_extracted"
@@ -195,7 +195,7 @@ def build_system():
                     update_result = "Successfully updated the system file."
                 except Exception as e:
                     update_result = f"Error updating system file: {repr(e)}"
-                file_message = ToolMessage(
+                file_message = HumanMessage(
                     content=update_result,
                     name="ExtractedCode",
                     tool_call_id=f"auto_extracted_{iteration}"
