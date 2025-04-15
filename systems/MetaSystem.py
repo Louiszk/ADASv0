@@ -7,7 +7,7 @@ import os
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
 from typing import Dict, List, Any, Callable, Optional, Union, TypeVar, Generic, Tuple, Set, TypedDict
-from agentic_system.large_language_model import LargeLanguageModel, execute_tool_calls
+from agentic_system.large_language_model import LargeLanguageModel, execute_decorator_tool_calls
 import json
 from tqdm import tqdm
 import traceback
@@ -103,14 +103,13 @@ def build_system():
 
     # Tool: SetStateAttributes
     # Description: Sets state attributes with type annotations for the target system
-    def set_state_attributes(attributes: str) -> str:
+    def set_state_attributes(attributes: Dict[str, str]) -> str:
         """
             Defines state attributes accessible throughout the system. Only defines the type annotations, not the values.
-                attributes: A json string mapping attribute names to string type annotations. 
-                '{"messages": "List[Any]"}' is the default and will be set automatically.
+                attributes: A python dictionary mapping attribute names to string type annotations. 
+                {"messages": "List[Any]"} is the default and will be set automatically.
         """
         try:
-            attributes = json.loads(attributes)
             target_system.set_state_attributes(attributes)
             return f"State attributes set successfully: {attributes}"
         except Exception as e:
@@ -286,14 +285,13 @@ def build_system():
 
     # Tool: TestSystem
     # Description: Tests the target system with a given state
-    def test_system(state: str) -> str:
+    def test_system(state: Dict[str, Any]) -> str:
         """
             Executes the current system with a test input state to validate functionality.
-                state: A json string with state attributes e.g. '{"messages": ["Test Input"], "attr2": [3, 5]}'
+                state: A python dictionary with state attributes e.g. {"messages": ["Test Input"], "attr2": [3, 5]}
         """
         all_outputs = []
         error_message = ""
-        state = json.loads(state)
     
         try:
             if not (target_system.entry_point and target_system.finish_point):
@@ -427,8 +425,7 @@ def build_system():
     # Description: Meta Agent
     def meta_agent_function(state: Dict[str, Any]) -> Dict[str, Any]:  
         llm = LargeLanguageModel(temperature=0.2, wrapper="google", model_name="gemini-2.0-flash")
-        llm.bind_tools(list(tools.keys()))
-    
+
         context_length = 8*2 # even
         messages = state.get("messages", [])
         iteration = len([msg for msg in messages if isinstance(msg, AIMessage)])
@@ -442,45 +439,46 @@ def build_system():
                 allow_partial=False    
             )
         except Exception as e:
-             print(f"Error during message trimming: {e}")
-    
+            print(f"Error during message trimming: {e}")
+
         code_message = f"(Iteration {iteration}) Current Code:\n" + materialize_system(target_system, output_dir=None)
-    
+
         full_messages = [SystemMessage(content=system_prompts.meta_agent), initial_message] + trimmed_messages + [HumanMessage(content=code_message)]
         print([getattr(last_msg, 'type', 'Unknown') for last_msg in full_messages])
         response = llm.invoke(full_messages)
-    
+        
         if not hasattr(response, 'content') or not response.content:
             response.content = "I will call the necessary tools."
-    
-        tool_messages, tool_results = execute_tool_calls(response)
-    
+        
+        # Check for decorator-style tool calls
+        tool_messages, tool_results, _ = execute_decorator_tool_calls(response.content)
+
         updated_messages = messages + [response]
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
-            updated_messages.append(HumanMessage(content="You made no valid function calls."))
-    
-                # Ending the design if the last test ran without errors (this does not check accuracy)
+            updated_messages.append(HumanMessage(content="You made no valid function calls. Remember to use the @@decorator_name() syntax."))
+
+        # Ending the design if the last test ran without errors (this does not check accuracy)
         design_completed = False
         if tool_results and 'EndDesign' in tool_results and "Ending the design process" in str(tool_results['EndDesign']):
             test_passed_recently = False
             search_start_index = max(0, len(messages) - 6)
             for msg in reversed(updated_messages[search_start_index:]):
-                if isinstance(msg, ToolMessage) and hasattr(msg, 'content'):
+                if isinstance(msg, HumanMessage) and hasattr(msg, 'content'):
                     if "Test completed." in msg.content:
                         test_passed_recently = True
                         break
                     elif "Error while testing the system" in msg.content:
                         test_passed_recently = False
                         break
-    
+
             if test_passed_recently or iteration > 58:
                 design_completed = True
             else:
-                 for i, tm in enumerate(tool_messages):
-                     if tm.name == 'EndDesign':
-                         tm.content += "Error: Cannot finalize design. Please run successful tests using TestSystem first."
+                for i, tm in enumerate(tool_messages):
+                    if tm.name == 'EndDesign':
+                        tm.content += "Error: Cannot finalize design. Please run successful tests using TestSystem first."
     
         new_state = {"messages": updated_messages, "design_completed": design_completed}
         return new_state
