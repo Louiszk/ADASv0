@@ -93,9 +93,9 @@ def agent_node_router(state):
 - Custom state attributes can be defined with type annotations
 - State is accessible to all components throughout execution
 
-## Naming Conventions
-Never try to update the whole file at once, only make changes to the individual components (tools, nodes, routers).
-To create or modify a tool, node or router, simply provide the complete function code inside a Python markdown code block.
+## Creating and updating components (tools, nodes, routers)
+Never try to update the whole file at once, only make changes to the individual components.
+To create or modify a component, simply provide the complete function code inside a Python markdown code block.
 When you provide these Python functions, use the following naming conventions:
 - Nodes: Always name with a "_node" suffix (e.g., "agent_node", "process_node")
 - Tools: Always name with a "_tool" suffix (e.g., "calculator_tool", "search_tool")
@@ -106,7 +106,7 @@ Always place your code inside a Python markdown code block.
 Do NOT include triple backticks (```) anywhere within the code content itself, or parsing will fail.
 
 ```python
-def example_function():
+def agent_node():
     # Your code here
     pass
 ```

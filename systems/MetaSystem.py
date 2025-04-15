@@ -404,18 +404,18 @@ def build_system():
                         result = f"Warning: Function '{function_name}' has unclear purpose. Use _node, _tool, or _router naming convention."
     
                     # Create tool message to mimic old behavior
-                    function_messages.append(ToolMessage(
+                    function_messages.append(HumanMessage(
                         content=result,
                         name="ParsedFunction",
-                        tool_call_id=f"auto_{function_type}_{function_name}_{iteration}{block_number}"
+                        tool_call_id=f"call_id_{iteration}{block_number}"
                     ))
     
             except Exception as e:
                 error_msg = f"Error processing function: {repr(e)}"
-                function_messages.append(ToolMessage(
+                function_messages.append(HumanMessage(
                     content=error_msg,
                     name="ParsedFunction",
-                    tool_call_id=f"auto_function_error_{iteration}{block_number}"
+                    tool_call_id=f"error_id_{iteration}{block_number}"
                 ))
     
         # Execute regular tool calls
