@@ -72,7 +72,7 @@ def build_system():
     def test_system(state: Dict[str, Any]) -> str:
         """
             Executes the current system with a test input state to validate functionality.
-                state: A json string with state attributes e.g. '{"messages": ["Test Input"], "attr2": [3, 5]}'
+                state: A python dictionary with state attributes e.g. '{"messages": ["Test Input"], "attr2": [3, 5]}'
         """
         all_outputs = []
         error_message = None
@@ -205,11 +205,11 @@ def build_system():
                 
         # Ending the design if the last test ran without errors (this does not check accuracy)
         design_completed = False
-        if tool_results and 'EndDesign' in tool_results and "Ending the design process" in str(tool_results['EndDesign']):
+        if tool_results and 'end_design' in tool_results and "Ending the design process" in str(tool_results['end_design']):
             test_passed_recently = False
             search_start_index = max(0, len(messages) - 6)
             for msg in reversed(updated_messages[search_start_index:]):
-                if isinstance(msg, ToolMessage) and hasattr(msg, 'content'):
+                if isinstance(msg, HumanMessage) and hasattr(msg, 'content'):
                     if "Test completed." in msg.content:
                         test_passed_recently = True
                         break
@@ -221,7 +221,7 @@ def build_system():
                 design_completed = True
             else:
                 for i, tm in enumerate(tool_messages):
-                    if tm.name == 'EndDesign':
+                    if tm.name == 'end_design':
                         tm.content += "Error: Cannot finalize design. Please run successful tests using TestSystem first."
 
         new_state = {"messages": updated_messages, "design_completed": design_completed}

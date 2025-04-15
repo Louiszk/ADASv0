@@ -1,7 +1,7 @@
 import os
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import ToolMessage, HumanMessage
+from langchain_core.messages import ToolMessage, HumanMessage, SystemMessage
 from dotenv import load_dotenv
 import re
 import uuid
@@ -23,10 +23,10 @@ def parse_decorator_tool_calls(text):
             line = lines[i].strip()
             
             if line.startswith('@@'):
-                call_match = re.match(r'@@([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)', line)
+                call_match = re.match(r'@@([a-zA-Z_][a-zA-Z0-9_]*)', line)
                 if call_match:
                     tool_name = call_match.group(1)
-                    args_str = call_match.group(2).strip()
+                    args_str = line[line.index('(')+1:line.rindex(')')]
                     tool_id = str(uuid.uuid4())[:32]
                     
                     # Special handling for change_code
@@ -55,7 +55,7 @@ def parse_decorator_tool_calls(text):
                             try:
                                 # Simple function to capture kwargs
                                 exec_str = f"def parsing_function(**kwargs): return kwargs\nargs = parsing_function({args_str})"
-                                local_vars = {}
+                                local_vars = {"HumanMessage": HumanMessage, "SystemMessage": SystemMessage}
                                 exec(exec_str, {}, local_vars)
                                 args = local_vars.get('args', {})
                             except Exception as e:
