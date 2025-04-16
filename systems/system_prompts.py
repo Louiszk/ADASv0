@@ -1,18 +1,23 @@
-# modified from https://github.com/Aider-AI/aider/blob/main/aider/coders/udiff_prompts.py
+# Ideas from https://github.com/Aider-AI/aider/blob/main/aider/coders/udiff_prompts.py
+# and https://cookbook.openai.com/examples/gpt4-1_prompting_guide
 udiff_prompt = """
 - Generate diffs similar to `diff -U0`.
 - Start *each* block of changes (hunk) with a `@@ @@` line.
 - **Do not** include file paths (`--- a/file`, `+++ b/file`).
 - **Do not** include timestamps or line numbers in the `@@ @@` line.
 
-- Use `-` for lines to be **removed**.
-- Use `+` for lines to be **added**.
-- Use ` ` for **context lines**.
-
 - Each diff hunk (a block starting with `@@ @@`) MUST address only **one specific, localized change**.
 - **NEVER generate large hunks** that attempt to modify multiple unrelated parts of the file simultaneously.
 
-- The patching tool requires that ALL context lines within a single `@@ @@` hunk must exactly match a contiguous block of lines currently present in the file.
+For each snippet of code that needs to be changed, repeat the following:
+ [context_before] -> See below for further instructions on context.
+- [old_code] -> Precede the old code with a `-` minus sign.
++ [new_code] -> Precede the new, replacement code with a `+` plus sign.
+ [context_after] -> See below for further instructions on context.
+
+For instructions on [context_before] and [context_after]:
+    - By default, show 3 lines of code immediately above and 3 lines immediately below each change.
+    - Precede the context code with a ` ` empty space.
 
 - If you need to change code in two different locations, **use two separate `@@ @@` hunks.** Do *not* try to combine them into one large hunk with context lines spanning both areas.
 - Inside a small, targeted hunk, first show the context (` ` lines), then the lines to remove (`-` lines), then the lines to add (`+` lines).
@@ -23,7 +28,7 @@ udiff_prompt = """
 
 Think carefully about the precise context needed for *each individual change* and create a separate `@@ @@` hunk for it. This is the most reliable way to ensure your changes apply correctly.
 
-# Correct Examples:
+# CORRECT Examples:
 # Example 1: Simple addition with context before
 @@ @@
      # Define state attributes for the system
@@ -31,40 +36,18 @@ Think carefully about the precise context needed for *each individual change* an
          messages: List[Any]
 +        attr1: str
 +        attr2: float
-
-# Example 2: Replacing content with context before
+ 
+     # Initialize graph with state
+     graph = StateGraph(AgentState)
 @@ @@
      graph = StateGraph(AgentState)
      tools = {}
--    # ===== Tool Definitions =====
+     # ===== Tool Definitions =====
 -    # No tools defined yet
-+    # ===== Tool Definitions =====
-+    @tool
 +    def my_tool(input: str) -> str:
 +        # ... tool logic ...
 +        return "result"
-+    tools["my_tool"] = my_tool
-
-# Incorrect Examples:
-# Example 1: Context lines between additions (will cause duplication)
-@@ @@
-     class AgentState(TypedDict):
-         messages: List[Any]
-+        attr1: str
-         # Comment describing attributes
-+        attr2: float
-
-# Example 2: Context lines between deletion and addition (will cause duplication)
-@@ @@
-     graph = StateGraph(AgentState)
-     tools = {}
--    # ===== Tool Definitions =====
-     # This comment stays the same
--    # No tools defined yet
-+    # ===== New Tool Definitions =====
-+    @tool
-+    def my_tool(input: str) -> str:
-+        return "result"
++    tools["my_tool"] = tool(runnable=my_tool, name_or_callable="my_tool")
 """
 
 chain_of_thought = """
@@ -184,6 +167,7 @@ graph.add_conditional_edges("SourceNode", router_function)
 
 ### Using the ChangeCode tool:
 The ChangeCode tool allows you to modify the target system file using unified diffs.
+The diffs can only be applied using the ChangeCode tool — do NOT use markdown blocks.
 ''' + udiff_prompt + '''
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.

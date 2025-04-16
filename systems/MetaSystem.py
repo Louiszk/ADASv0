@@ -133,134 +133,38 @@ def build_system():
                 diff: A unified diff string representing the changes to make to the target system file, consisting of one or more hunks.
         """
         try:
-            from agentic_system.udiff import (find_diffs, do_replace,
-                                            hunk_to_before_after, no_match_error,
-                                            not_unique_error, SearchTextNotUnique)
+            from agentic_system.udiff import apply_unified_diff, SearchTextNotUnique
 
             if "+def build_system()" in diff or "-def build_system()" in diff:
-                error_msg = "Error: Modifications to build_system() function signature are not allowed."
-                return error_msg
+                return "Error: Modifications to build_system() function signature are not allowed."
+            if not diff or not diff.strip():
+                return "Error: Received an empty diff string."
 
-            edits = find_diffs(diff)
-            if not edits:
-                return no_match_error
-
-            invalid_hunk_found = False
-            structure_error_msg = "Error: Invalid hunk structure detected.\n"
-            for i, (_, hunk) in enumerate(edits):
-                in_change = False
-                seen_context_after_change = False
-                hunk_lines_to_process = hunk[1:] if hunk and hunk[0].startswith("@@ ") else hunk
-                for line_num, line in enumerate(hunk_lines_to_process):
-                    if not line: continue
-                    op = line[0]
-                    if op in '+-':
-                        if seen_context_after_change and in_change:
-                            invalid_hunk_found = True
-                            structure_error_msg += f"Hunk #{i+1} is invalid: Context lines found between addition/deletion lines.\n"
-                            structure_error_msg += "This could cause content duplication. Split the changes into multiple smaller hunks.\n"
-                            break
-                        in_change = True
-                        seen_context_after_change = False
-                    elif op == ' ' and in_change:
-                        seen_context_after_change = True
-                if invalid_hunk_found:
-                    break
-            
-            if invalid_hunk_found:
-                return structure_error_msg
 
             with open(target_system_file, 'r') as f:
                 original_content = f.read()
-                current_content = original_content
 
-            all_hunks_applied = True
-            failed_hunks_details = []
+            modified_content = apply_unified_diff(
+                diff_text=diff,
+                original_content=original_content,
+                target_filename=target_system_file
+            )
 
-            for i, (_, hunk) in enumerate(edits):
-                try:
-                    result_content = do_replace(target_system_file, current_content, hunk)
-                    if result_content is not None:
-                        current_content = result_content
-                    else:
-                        all_hunks_applied = False
-                        before_text, _ = hunk_to_before_after(hunk)
-                        failed_hunks_details.append({
-                            "hunk_index": i + 1,
-                            "before_text": before_text[:150] + ("..." if len(before_text) > 150 else ""),
-                            "hunk_lines": len(hunk),
-                            "error": "no_match"
-                        })
-                        break
-                except SearchTextNotUnique:
-                    all_hunks_applied = False
-                    before_text, _ = hunk_to_before_after(hunk)
-                    failed_hunks_details.append({
-                        "hunk_index": i + 1,
-                        "before_text": before_text[:150] + ("..." if len(before_text) > 150 else ""),
-                        "hunk_lines": len(hunk),
-                        "error": "not_unique"
-                    })
-                    break
-                except Exception as e_inner:
-                    all_hunks_applied = False
-                    before_text, _ = hunk_to_before_after(hunk)
-                    failed_hunks_details.append({
-                        "hunk_index": i + 1,
-                        "before_text": before_text[:150] + ("..." if len(before_text) > 150 else ""),
-                        "hunk_lines": len(hunk),
-                        "error": f"unexpected: {repr(e_inner)}"
-                    })
-                    break
+            with open(target_system_file, 'w') as f:
+                f.write(modified_content)
 
-            if all_hunks_applied:
-                with open(target_system_file, 'w') as f:
-                    f.write(current_content)
-                return "Successfully applied all diff hunks to the system."
-            else:
-                error_msg = "Error: Failed to apply one or more diff hunks.\n"
-                for failed in failed_hunks_details:
-                    error_type = failed.get("error")
-                    hunk_preview = failed.get('before_text', 'N/A')
-                    error_msg += f"Hunk #{failed['hunk_index']} ({failed['hunk_lines']} lines) failed. Error type: {error_type}\n"
-                    error_msg += f"Context near failure:\n```diff\n- {hunk_preview}...\n```\n"
-                    if error_type == "not_unique":
-                        error_msg += not_unique_error + "\n"
-                    elif error_type == "no_match":
-                        error_msg += no_match_error + "\n"
-                    else:
-                        error_msg += "Unexpected error during diff application.\n"
-                error_msg += "No changes were saved to the file. Please provide a corrected diff."
-                return error_msg
+            return "Successfully applied all diff hunks to the system."
 
+        except ValueError as e:
+            error_msg = f"Error applying diff:\n{str(e)}"
+            error_msg += "\nNo changes were saved to the file. Please provide a corrected diff."
+            return error_msg
+        except ImportError as e:
+            return f"Error: Failed to import udiff components. {str(e)}"
         except Exception as e:
-            return f"Error applying diff: {repr(e)}"
+            return f"Unexpected error in ChangeCode tool: {repr(e)}"
 
     tools["ChangeCode"] = tool(runnable=change_code, name_or_callable="ChangeCode")
-
-    # Tool: ResetSystem
-    # Description: Resets the target system file to its initial template state
-    def reset_system() -> str:
-        """
-            Resets the target system file to its initial template state, discarding all current changes.
-            Only use this if the current code is broken beyond repair.
-        """
-        try:
-            template_path = "/sandbox/workspace/agentic_system/target_system_template.py"
-            if not os.path.exists(template_path):
-                return "Error: Target system template file not found."
-            
-            with open(template_path, 'r') as f_template:
-                template_content = f_template.read()
-            
-            with open(target_system_file, 'w') as f_target:
-                f_target.write(template_content)
-                
-            return "Successfully reset the target system file to the template."
-        except Exception as e:
-            return f"Error resetting system: {repr(e)}"
-
-    tools["ResetSystem"] = tool(runnable=reset_system, name_or_callable="ResetSystem")
 
     # Tool: EndDesign
     # Description: Finalizes the system design process
@@ -303,6 +207,7 @@ def build_system():
             code_content = f.read()
 
         code_message = f"(Iteration {iteration}) Current Code:\n" + code_content
+        print(code_message)
     
         full_messages = [SystemMessage(content=system_prompts.meta_agent), initial_message] + trimmed_messages + [HumanMessage(content=code_message)]
         print([getattr(last_msg, 'type', 'Unknown') for last_msg in full_messages])
