@@ -201,7 +201,7 @@ def build_system():
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
-            updated_messages.append(HumanMessage(content="You made no valid function calls. Remember to use the decorators e.g. @@function_name()"))
+            updated_messages.append(HumanMessage(content="You made no valid function calls. Remember to use the @@decorator_name() syntax."))
                 
         # Ending the design if the last test ran without errors (this does not check accuracy)
         design_completed = False
