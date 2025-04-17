@@ -83,7 +83,8 @@ You have these decorators available for designing the system:
 
 decorator_tool_prompt = """
 Using those decorators is the only way to design the system.
-Always enclose them in triple backticks, or a python markdown block:
+Do NOT add them to the system you are designing, that is not the intended way, 
+instead always enclose them in triple backticks, or a Python markdown block to execute them directly:
 ```
 @@function_name(arg1 = "value1", arg2 = "value2")
 ```
@@ -91,6 +92,9 @@ Always enclose them in triple backticks, or a python markdown block:
 For example:
 ```
 @@pip_install(package_name = "numpy")
+```
+```
+@@test_system(state = {"messages": ["Test Input"], "attr2": [3, 5]})
 ```
 
 For code-related decorators, provide the code directly after the decorator:
