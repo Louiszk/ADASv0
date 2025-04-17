@@ -1,5 +1,4 @@
 file_content_prompt = """
-The change_code tool expects the complete file content. 
 The content you provide will completely replace the existing content of the target file.
 Do not get lazy, do not remove important parts of the implementation.
 Do not use any placeholders.
@@ -13,6 +12,15 @@ Make sure your file includes:
 - Proper indentation and formatting
 
 The user's system expects a fully functional file that can run without errors.
+
+# CORRECT Example:
+```
+@@change_code()
+# Imports
+from langgraph.graph import StateGraph, START, END
+from langchain_core.tools import tool
+...
+```
 """
 
 function_signatures = '''
@@ -42,21 +50,18 @@ You have these decorators available for designing the system:
 
 decorator_tool_prompt = """
 Using those decorators is the only way to design the system.
-Always enclose them in triple backticks, or a python markdown block:
+Do NOT add them to the system you are designing, that is not the intended way, 
+instead always enclose them in triple backticks, or a Python markdown block to execute them directly:
 ```
 @@function_name(arg1 = "value1", arg2 = "value2")
 ```
+
 For example:
 ```
 @@pip_install(package_name = "numpy")
 ```
-For the change_code decorator specifically, provide the full file content after the decorator:
 ```
-@@change_code()
-# Imports
-from langgraph.graph import StateGraph, START, END
-from langchain_core.tools import tool
-...
+@@test_system(state = {"messages": ["Test Input"], "attr2": [3, 5]})
 ```
 
 """
@@ -178,8 +183,9 @@ graph.add_conditional_edges("SourceNode", router_function)
 
 ''' + function_signatures + '''
 ''' + decorator_tool_prompt + '''
-### Using the change_code tool:
-The change_code tool allows you to modify the target system file.
+### Using the @@change_code decorator:
+The @@change_code decorator allows you to modify the target system file.
+For the @@change_code decorator specifically, provide the full file content after the decorator.
 ''' + file_content_prompt + '''
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.
