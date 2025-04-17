@@ -1,8 +1,121 @@
 import os
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import ToolMessage, HumanMessage, SystemMessage
 from dotenv import load_dotenv
+import re
+import uuid
+
+def parse_decorator_tool_calls(text):
+    """Parse decorator-style tool calls from text."""
+    tool_calls = []
+
+    def camelfy(snake_case):
+        parts = snake_case.split("_")
+        return "".join([part.capitalize() for part in parts])
+    
+    # Extract code blocks
+    code_blocks = re.findall(r'^```(.*?)\n```', text, re.DOTALL | re.MULTILINE)
+    if not code_blocks:
+        print("No code blocks found!")
+    
+    for block in code_blocks:
+        lines = block.split('\n')
+        i = 0
+        
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            if line.startswith('@@'):
+                call_match = re.match(r'@@([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                if call_match:
+                    function_name = call_match.group(1)
+                    tool_name = camelfy(function_name)
+                    args_str = line[line.index('(')+1:line.rindex(')')]
+                    tool_id = str(uuid.uuid4())[:32]
+                    
+                    # Special handling for change_code
+                    if function_name == 'change_code':
+                        start_idx = i + 1
+                        end_idx = len(lines)
+                        
+                        for j in range(start_idx, len(lines)):
+                            if lines[j].strip().startswith('@@'):
+                                end_idx = j
+                                break
+                        
+                        content = '\n'.join(lines[start_idx:end_idx])
+                        tool_calls.append({
+                            'name': tool_name,
+                            'args': {'file_content': content},
+                            'id': f'call_{tool_id}'
+                        })
+                        
+                        i = end_idx - 1
+                    else:
+                        # Use Python's own parser to handle arguments
+                        args = {}
+                        
+                        if args_str:
+                            try:
+                                # Simple function to capture kwargs
+                                exec_str = f"def parsing_function(**kwargs): return kwargs\nargs = parsing_function({args_str})"
+                                local_vars = {"HumanMessage": HumanMessage, "SystemMessage": SystemMessage}
+                                exec(exec_str, {}, local_vars)
+                                args = local_vars.get('args', {})
+                            except Exception as e:
+                                print(f"Error parsing arguments: {e}")
+                        
+                        tool_calls.append({
+                            'name': tool_name,
+                            'args': args,
+                            'id': f'call_{tool_id}'
+                        })
+            i += 1
+    
+    return tool_calls
+
+def execute_decorator_tool_calls(text):
+    """Execute decorator-style tool calls found in the text."""
+    tool_calls = parse_decorator_tool_calls(text)
+    if not tool_calls:
+        return [], {}, []
+        
+    tool_messages = []
+    tool_results = {}
+    
+    for tool_call in tool_calls:
+        tool_name = tool_call['name']
+        tool_args = tool_call['args']
+        tool_id = tool_call['id']
+        
+        if tool_name in LargeLanguageModel.available_tools:
+            try:
+                result = LargeLanguageModel.available_tools[tool_name].invoke(tool_args)
+                
+                tool_messages.append(HumanMessage(
+                    content=str(result) if result else f"Tool {tool_name} executed successfully.",
+                    tool_call_id=tool_id,
+                    name=tool_name
+                ))
+                tool_results[tool_name] = result
+            except Exception as e:
+                error_message = f"Error executing tool {tool_name}: {repr(e)}"
+                tool_messages.append(HumanMessage(
+                    content=error_message,
+                    tool_call_id=tool_id,
+                    name=tool_name
+                ))
+                tool_results[tool_name] = error_message
+        else:
+            error_message = f"Tool {tool_name} not found"
+            tool_messages.append(HumanMessage(
+                content=error_message,
+                tool_call_id=tool_id,
+                name="error"
+            ))
+                
+    return tool_messages, tool_results, tool_calls
 
 def execute_tool_calls(response):
     """Execute any tool calls in the llm response."""
