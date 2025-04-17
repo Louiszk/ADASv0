@@ -1,0 +1,20 @@
+Design a system to solve multiple-choice questions in computer science.
+
+Examples include, but are not limited to:
+    question: SHA-1 has a message digest of
+    options: [ '628 bits', '780 bits', '160 bits', '256 bits', '2048 bits', '820 bits', '128 bits', '512 bits', '1024 bits', '64 bits' ]
+    solution: 'C'
+
+    question: A compiler generates code for the following assignment statement. G := (A + B) * C - (D + E) * F 
+        The target machine has a single accumulator and a single-address instruction set consisting of instructions load, store, add, subtract, and multiply. For the arithmetic operations, the left operand is taken from the accumulator and the result appears in the accumulator. The smallest possible number of instructions in the resulting code is
+    options: [ '7', '5', '12', '4', '11', '6', '8', '10', '9', '3' ]
+    solution: 'I'
+
+The system's state must therefore contain the attributes:
+'question' : str , 'options': List[str], 'solution' : str
+
+The system should be able to solve any multiple-choice question in computer science with high accuracy.
+The correct solution is not provided in the input, it must be generated entirely by the system.
+The system's final state must include the correct 'solution' as a single letter ('A', 'B', ..., 'J')
+The system must not include any tools or functions that depend on an API key.
+The system must be completed in no more than 60 iterations.

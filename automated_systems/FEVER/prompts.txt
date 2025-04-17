@@ -1,0 +1,22 @@
+Design a system to evaluate factual claims.
+
+Factual claims require careful verification against reliable web sources and contextual knowledge to assess their truthfulness.
+The system should decide for one of these three labels:
+- SUPPORTS: The claim is supported by factual evidence
+- REFUTES: The claim contradicts factual evidence
+- NOT ENOUGH INFO: There is insufficient evidence to determine if the claim is supported or refuted
+
+Examples include, but are not limited to:
+    claim: 'Robert Richardson has lived with Quentin Tarantino.' 
+    prediction: 'NOT ENOUGH INFO'
+    claim: 'Kingdom Hearts III is owned by Boyz II Men.'
+    prediction: 'REFUTES'
+
+The system's state must therefore contain the attributes:
+'claim' : str , 'prediction': str
+
+The system should be able to evaluate any factual claim on any given domain with high accuracy.
+The correct prediction is not provided in the input, it must be generated entirely by the system.
+The system's final state must include the correct 'prediction' as exactly one of: 'SUPPORTS', 'REFUTES', 'NOT ENOUGH INFO'.
+The system must not include any tools or functions that depend on an API key.
+The system must be completed in no more than 60 iterations.

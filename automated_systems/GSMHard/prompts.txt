@@ -1,0 +1,17 @@
+Design a system to solve 'GSM-hard' problems.
+
+GSM-hard problems are complex grade-school math word problems that require careful reasoning and multi-step calculations.
+Examples include, but are not limited to:
+    problem: A new program had 531811 downloads in the first month. The number of downloads in the second month was three times as many as the downloads in the first month, but then reduced by 30% in the third month. How many downloads did the program have total over the three months?
+    solution: 3244047.1
+    Tom's ship can travel at 10 miles per hour.  He is sailing from 1 to 4 PM.  He then travels back at a rate of 6 mph.  How long does it take him to get back?
+    solution: 5
+
+The system's state must therefore contain the attributes:
+'problem' : str , 'solution': float
+
+The system should be able to solve any problem from GSM-hard with high accuracy.
+The correct solution is not provided in the input, it must be generated entirely by the system.
+The system's final state must include the correct 'solution' as a float.
+The system must not include any tools or functions that depend on an API key.
+The system must be completed in no more than 60 iterations.
