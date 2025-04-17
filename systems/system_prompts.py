@@ -21,10 +21,13 @@ For each snippet of code that needs to be changed, repeat the following:
 - Correct 4-space Python indentation is crucial for all lines.
 - Ensure the context (` `) lines and removed (`-`) lines **exactly match** the current code, including indentation and whitespace.
 - Always check the *current* code provided to you before generating a diff to avoid duplication or referencing code that no longer exists.
+- Do NOT include triple backticks (```) anywhere within the diff content itself, or parsing will fail.
 
 Think carefully about the precise context needed for *each individual change* and create a separate `@@ @@` hunk for it. This is the most reliable way to ensure your changes apply correctly.
 
 # CORRECT Example:
+```
+@@change_code()
 @@ @@
      # Define state attributes for the system
      class AgentState(TypedDict):
@@ -43,6 +46,50 @@ Think carefully about the precise context needed for *each individual change* an
 +        # ... tool logic ...
 +        return "result"
 +    tools["my_tool"] = tool(runnable=my_tool, name_or_callable="my_tool")
+```
+"""
+
+function_signatures = '''
+You have these decorators available for designing the system:
+```
+@@pip_install(package_name: str)
+    """
+        Securely installs a Python package using pip.
+            package_name: Name of the package to install e.g. "langgraph==0.3.5"
+    """
+@@test_system(state: Dict[str, Any])
+    """
+        Executes the current system with a test input state to validate functionality.
+            state: A python dictionary with state attributes e.g. {"messages": ["Test Input"], "attr2": [3, 5]}
+    """
+@@change_code()
+    """
+        Updates the target system file with the provided unified diff after the decorator.
+    """
+@@end_design()
+    """
+        Finalizes the system design process.
+    """
+```
+
+'''
+
+decorator_tool_prompt = """
+Using those decorators is the only way to design the system.
+Do NOT add them to the system you are designing, that is not the intended way, 
+instead always enclose them in triple backticks, or a Python markdown block to execute them directly:
+```
+@@function_name(arg1 = "value1", arg2 = "value2")
+```
+
+For example:
+```
+@@pip_install(package_name = "numpy")
+```
+```
+@@test_system(state = {"messages": ["Test Input"], "attr2": [3, 5]})
+```
+
 """
 
 chain_of_thought = """
@@ -160,9 +207,11 @@ graph.add_conditional_edges("SourceNode", router_function)
 - Custom state attributes can be defined with type annotations
 - State is accessible to all components throughout execution
 
-### Using the ChangeCode tool:
-The ChangeCode tool allows you to modify the target system file using unified diffs.
-The diffs can only be applied using the ChangeCode tool — do NOT use markdown blocks.
+''' + function_signatures + '''
+''' + decorator_tool_prompt + '''
+### Using the @@change_code decorator:
+The @@change_code decorator allows you to modify the target system file using unified diffs.
+For the @@change_code decorator specifically, provide a unified diff after the decorator.
 ''' + udiff_prompt + '''
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.
