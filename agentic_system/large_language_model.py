@@ -9,11 +9,15 @@ import uuid
 def parse_decorator_tool_calls(text):
     """Parse decorator-style tool calls from text."""
     tool_calls = []
+
+    def camelfy(snake_case):
+        parts = snake_case.split("_")
+        return "".join([part.capitalize() for part in parts])
     
     # Extract code blocks
-    code_blocks = re.findall(r'^```(?:python)?\s*\n(.*?)\n```$', text, re.DOTALL | re.MULTILINE)
+    code_blocks = re.findall(r'^```(.*?)\n```', text, re.DOTALL | re.MULTILINE)
     if not code_blocks:
-        code_blocks = [text]
+        print("No code blocks found!")
     
     for block in code_blocks:
         lines = block.split('\n')
@@ -25,12 +29,13 @@ def parse_decorator_tool_calls(text):
             if line.startswith('@@'):
                 call_match = re.match(r'@@([a-zA-Z_][a-zA-Z0-9_]*)', line)
                 if call_match:
-                    tool_name = call_match.group(1)
+                    function_name = call_match.group(1)
+                    tool_name = camelfy(function_name)
                     args_str = line[line.index('(')+1:line.rindex(')')]
                     tool_id = str(uuid.uuid4())[:32]
                     
                     # Special handling for change_code
-                    if tool_name == 'change_code':
+                    if function_name == 'change_code':
                         start_idx = i + 1
                         end_idx = len(lines)
                         

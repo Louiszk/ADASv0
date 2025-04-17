@@ -65,7 +65,7 @@ def build_system():
             return f"Installation failed: {str(e)}"
     
 
-    tools["pip_install"] = tool(runnable=pip_install, name_or_callable="pip_install")
+    tools["PipInstall"] = tool(runnable=pip_install, name_or_callable="PipInstall")
 
     # Tool: TestSystem
     # Description: Tests the target system with a given state
@@ -121,7 +121,7 @@ def build_system():
             return test_result
     
 
-    tools["test_system"] = tool(runnable=test_system, name_or_callable="test_system")
+    tools["TestSystem"] = tool(runnable=test_system, name_or_callable="TestSystem")
 
     # Tool: ChangeCode
     # Description: Updates the target system file with the provided content
@@ -140,7 +140,7 @@ def build_system():
             print(error_msg)
             return error_msg
 
-    tools["change_code"] = tool(runnable=change_code, name_or_callable="change_code")
+    tools["ChangeCode"] = tool(runnable=change_code, name_or_callable="ChangeCode")
 
     # Tool: EndDesign
     # Description: Finalizes the system design process
@@ -150,7 +150,7 @@ def build_system():
         """
         return "Ending the design process..."
 
-    tools["end_design"] = tool(runnable=end_design, name_or_callable="end_design")
+    tools["EndDesign"] = tool(runnable=end_design, name_or_callable="EndDesign")
 
     # Register tools with LargeLanguageModel class
     LargeLanguageModel.register_available_tools(tools)
@@ -205,7 +205,7 @@ def build_system():
                 
         # Ending the design if the last test ran without errors (this does not check accuracy)
         design_completed = False
-        if tool_results and 'end_design' in tool_results and "Ending the design process" in str(tool_results['end_design']):
+        if tool_results and 'EndDesign' in tool_results and "Ending the design process" in str(tool_results['EndDesign']):
             test_passed_recently = False
             search_start_index = max(0, len(messages) - 6)
             for msg in reversed(updated_messages[search_start_index:]):
@@ -221,7 +221,7 @@ def build_system():
                 design_completed = True
             else:
                 for i, tm in enumerate(tool_messages):
-                    if tm.name == 'end_design':
+                    if tm.name == 'EndDesign':
                         tm.content += "Error: Cannot finalize design. Please run successful tests using TestSystem first."
 
         new_state = {"messages": updated_messages, "design_completed": design_completed}
