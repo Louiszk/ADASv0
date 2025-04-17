@@ -24,8 +24,8 @@ For each snippet of code that needs to be changed, repeat the following:
 
 Think carefully about the precise context needed for *each individual change* and create a separate `@@ @@` hunk for it. This is the most reliable way to ensure your changes apply correctly.
 
-# CORRECT Examples:
-# Example 1: Simple addition with context before
+# CORRECT Example:
+```diff
 @@ @@
      # Define state attributes for the system
      class AgentState(TypedDict):
@@ -44,6 +44,7 @@ Think carefully about the precise context needed for *each individual change* an
 +        # ... tool logic ...
 +        return "result"
 +    tools["my_tool"] = tool(runnable=my_tool, name_or_callable="my_tool")
+```
 """
 
 chain_of_thought = """
@@ -161,9 +162,9 @@ graph.add_conditional_edges("SourceNode", router_function)
 - Custom state attributes can be defined with type annotations
 - State is accessible to all components throughout execution
 
-### Using the ChangeCode tool:
-The ChangeCode tool allows you to modify the target system file using unified diffs.
-The diffs can only be applied using the ChangeCode tool — do NOT use markdown blocks.
+### Changing the Current Code
+You are able to modify the target system file using unified diffs.
+Simply write the unified diffs in a markdown block between ```diff\n```
 ''' + udiff_prompt + '''
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.

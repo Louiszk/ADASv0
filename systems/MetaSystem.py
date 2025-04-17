@@ -164,8 +164,6 @@ def build_system():
         except Exception as e:
             return f"Unexpected error in ChangeCode tool: {repr(e)}"
 
-    tools["ChangeCode"] = tool(runnable=change_code, name_or_callable="ChangeCode")
-
     # Tool: EndDesign
     # Description: Finalizes the system design process
     def end_design() -> str:
@@ -215,15 +213,33 @@ def build_system():
 
         if not hasattr(response, 'content') or not response.content:
             response.content = "I will call the necessary tools."
+        
+        file_message = None
+        response_content = " ".join(response.content) if isinstance(response.content, list) else response.content
+        pattern = r'^```(?:diff)?\s*\n(.*?)\n```$'
+        match = re.search(pattern, response_content, re.DOTALL | re.MULTILINE)
+        if match:
+            extracted_diff = match.group(1).strip()
+            try:
+                update_result = change_code(extracted_diff)
+            except Exception as e:
+                update_result = f"Error updating system file: {repr(e)}"
+
+            file_message = HumanMessage(
+                content=update_result,
+                name="ExtractedCode"
+            )
 
         tool_messages, tool_results = execute_tool_calls(response)
+
+        if file_message:
+            tool_messages.append(file_message)
 
         updated_messages = messages + [response]
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
-            content = "You made no valid function calls." + (
-                " The diffs can only be applied using the ChangeCode tool — do NOT use markdown blocks!" if "```" in response else "")
+            content = "You made no valid function calls."
             updated_messages.append(HumanMessage(content=content))
     
         # Ending the design if the last test ran without errors (this does not check accuracy)
