@@ -1,6 +1,6 @@
 # Automated Design of Agentic Systems
 
-First version just overwriting the whole target system file in each iteration.
+Third version with multiple tools to design the system
 
 ## Quick Setup
 

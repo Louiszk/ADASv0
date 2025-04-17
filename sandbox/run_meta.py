@@ -1,12 +1,13 @@
 import os
 import sys
 import json
+import dill as pickle
 import time
-import shutil
 import datetime
 from langchain_core.messages import HumanMessage
 
 sys.path.append('/sandbox/workspace')
+from agentic_system.virtual_agentic_system import VirtualAgenticSystem
 from systems import MetaSystem
 
 def main():
@@ -44,29 +45,22 @@ def main():
         metrics["optimize_from_file"] = optimize_from_file
    
     print(f"Running meta system for '{system_name}'...")
-    
-    MetaSystem.target_system_name = system_name
-    MetaSystem.target_system_file = "/sandbox/workspace/automated_systems/" + system_name.replace("/", "_").replace("\\", "_").replace(":", "_") + ".py"
-    
+   
     try:
-        # Initialize target system file
-        source_path = "/sandbox/workspace/agentic_system/target_system_template.py"
-        initial_code = ""
-        
         if optimize_from_file:
-            source_path = "/sandbox/workspace/automated_systems/" + optimize_from_file.replace("/", "_").replace("\\", "_").replace(":", "_") + ".py"
+            path = "/sandbox/workspace/automated_systems/" + optimize_from_file.replace("/", "_").replace("\\", "_").replace(":", "_")
+            try:
+                with open(path + '.pkl', 'rb') as f:
+                    MetaSystem.target_system = pickle.load(f)
 
-        if os.path.exists(source_path):
-            with open(source_path, 'r') as f:
-                initial_code = f.read()
-                
-            with open(MetaSystem.target_system_file, 'w') as f:
-                f.write(initial_code)
-                
-            print(f"Initialized target system from {source_path}")
+                MetaSystem.target_system.system_name = system_name
+                print("Code initialized")
+            except Exception as e:
+                print(f"Error initializing: {e}")
+                MetaSystem.target_system = VirtualAgenticSystem(system_name)
         else:
-            print("Target system file path does not exist.")
-                
+            MetaSystem.target_system = VirtualAgenticSystem(system_name)
+       
         workflow, tools = MetaSystem.build_system()
         inputs = {"messages": [HumanMessage(content=problem_statement)]}
         processed_msg_ids = set()
