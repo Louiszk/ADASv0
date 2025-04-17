@@ -97,7 +97,7 @@ def get_model(wrapper, model_name, temperature):
 class LargeLanguageModel:
     available_tools = {}
 
-    def __init__(self, temperature=0.4, wrapper = "openai", model_name="gpt-4o-mini"):
+    def __init__(self, temperature=0.2, wrapper = "openai", model_name="gpt-4.1-nano"):
         self.model = get_model(wrapper, model_name, temperature)
         self.wrapper = wrapper
 
