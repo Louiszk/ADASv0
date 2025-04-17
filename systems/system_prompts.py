@@ -24,8 +24,7 @@ For each snippet of code that needs to be changed, repeat the following:
 
 Think carefully about the precise context needed for *each individual change* and create a separate `@@ @@` hunk for it. This is the most reliable way to ensure your changes apply correctly.
 
-# CORRECT Examples:
-# Example 1: Simple addition with context before
+# CORRECT Example:
 @@ @@
      # Define state attributes for the system
      class AgentState(TypedDict):
