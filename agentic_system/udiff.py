@@ -25,7 +25,7 @@ The diff needs to apply to a unique set of lines in the file!
 """
 
 other_hunks_applied = (
-    "Note: some hunks did apply successfully. See the updated source code shown above.\n\n"
+    "Note: some hunks did apply successfully."
 )
 
 def find_diffs(content):
@@ -72,11 +72,12 @@ def apply_unified_diff(diff_text, original_content, target_filename="target_syst
     edits = find_diffs(diff_text)
     if not edits:
         print("No diff hunks found in the provided text.")
-        return original_content
+        return original_content, 0, 0 # content, applied_count, total_count
 
     current_content = original_content
     total_hunks = len(edits)
     applied_hunks_count = 0
+    skipped_hunks_count = 0
     errors = []
     seen_hunks = set()
     target_file_path = Path(target_filename)
@@ -115,6 +116,7 @@ def apply_unified_diff(diff_text, original_content, target_filename="target_syst
                 errors.append(f"Hunk {i+1}/{total_hunks} failed: No Match\n{error_detail}")
                 print(f"Failed to apply hunk {i+1}/{total_hunks}: No Match")
             else:
+                 skipped_hunks_count += 1
                  print(f"Skipped hunk {i+1}/{total_hunks}: No change detected after application.")
 
 
@@ -136,5 +138,8 @@ def apply_unified_diff(diff_text, original_content, target_filename="target_syst
             error_message += "\n\n" + other_hunks_applied
         raise ValueError(error_message)
 
-    print(f"All {applied_hunks_count} applicable hunks applied successfully out of {total_hunks} found.")
-    return current_content
+    final_applied = applied_hunks_count
+    final_total = total_hunks - skipped_hunks_count
+
+    print(f"Applied {final_applied} hunks, Skipped {skipped_hunks_count} hunks out of {total_hunks} found.")
+    return current_content, final_applied, final_total

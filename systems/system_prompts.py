@@ -16,7 +16,7 @@ For each snippet of code that needs to be changed, repeat the following:
  [context_after] -> Precede the context code with a ` ` empty space.
 
 - If you need to change code in two different locations, **use two separate `@@ @@` hunks.** Do *not* try to combine them into one large hunk with context lines spanning both areas.
-- Inside a small, targeted hunk, first show the context (` ` lines), then the lines to remove (`-` lines), then the lines to add (`+` lines).
+- Never use context lines between the [old_code] and the [new_code].
 
 - Correct 4-space Python indentation is crucial for all lines.
 - Ensure the context (` `) lines and removed (`-`) lines **exactly match** the current code, including indentation and whitespace.

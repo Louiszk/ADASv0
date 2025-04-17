@@ -144,16 +144,23 @@ def build_system():
             with open(target_system_file, 'r') as f:
                 original_content = f.read()
 
-            modified_content = apply_unified_diff(
+            modified_content, applied_count, total_count = apply_unified_diff(
                 diff_text=diff,
                 original_content=original_content,
                 target_filename=target_system_file
             )
 
-            with open(target_system_file, 'w') as f:
-                f.write(modified_content)
+            if modified_content != original_content:
+                with open(target_system_file, 'w') as f:
+                    f.write(modified_content)
 
-            return "Successfully applied all diff hunks to the system."
+            if applied_count == total_count and total_count > 0:
+                return f"Successfully applied all {applied_count} diff hunks to the system."
+            elif total_count == 0:
+                return "No applicable diff hunks found in the input."
+            else:
+                return f"Applied {applied_count}/{total_count} hunks. Some hunks were skipped as they resulted in no change."
+
 
         except ValueError as e:
             error_msg = f"Error applying diff:\n{str(e)}"
