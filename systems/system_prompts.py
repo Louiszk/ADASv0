@@ -64,7 +64,7 @@ You have these decorators available for designing the system:
     """
 @@change_code()
     """
-        Modifies the target system file using a unified diff.
+        Updates the target system file with the provided unified diff after the decorator.
     """
 @@end_design()
     """
