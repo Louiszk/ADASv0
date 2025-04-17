@@ -178,8 +178,8 @@ graph.add_conditional_edges("SourceNode", router_function)
 
 ''' + function_signatures + '''
 ''' + decorator_tool_prompt + '''
-### Using the ChangeCode tool:
-The ChangeCode tool allows you to modify the target system file.
+### Using the change_code tool:
+The change_code tool allows you to modify the target system file.
 ''' + file_content_prompt + '''
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.
