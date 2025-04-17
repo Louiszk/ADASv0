@@ -1,19 +1,13 @@
 # modified from https://github.com/Aider-AI/aider/blob/main/aider/coders/udiff_coder.py
-# udiff.py
-import difflib
-from itertools import groupby
 from pathlib import Path
-import os
 
 # Import the core standalone functions from udiff_coder
 from .udiff_coder import (
+    SearchTextNotUnique,
     do_replace,
     hunk_to_before_after,
     normalize_hunk
 )
-
-class SearchTextNotUnique():
-    pass
 
 no_match_error = """UnifiedDiffNoMatch: hunk failed to apply!
 
@@ -36,8 +30,7 @@ other_hunks_applied = (
 
 def find_diffs(content):
     """
-    Parses content containing potentially multiple sequential unified diff hunks,
-    each starting with '@@ '. More robustly consumes lines between headers.
+    Parses content containing potentially multiple sequential unified diff hunks, each starting with '@@ '.
     Returns a list of tuples: [(None, hunk_lines), ...].
     """
     if not content.endswith("\n"):
@@ -53,22 +46,19 @@ def find_diffs(content):
             line_num += 1
 
         if line_num >= len(lines):
-            break # No more hunk headers found
+            break
 
         start_of_hunk = line_num
         current_hunk_lines = [lines[start_of_hunk]]
         line_num += 1
 
-        # Find the start of the *following* hunk or end of file
         while line_num < len(lines) and not lines[line_num].startswith("@@ "):
             current_hunk_lines.append(lines[line_num])
             line_num += 1
 
         # Add the collected hunk if it actually contains changes
         if any(l.strip().startswith(("+", "-")) for l in current_hunk_lines[1:]):
-             # Basic validation: does it look like it has +/- lines?
              edits.append((None, current_hunk_lines))
-        # line_num now points to the next '@@ ' or is at the end of the file
 
     # Fallback only if NO '@@ ' hunks were found at all
     if not edits and any(line.startswith(("+", "-")) for line in lines):
@@ -78,11 +68,8 @@ def find_diffs(content):
 
     return edits
 
-
-# --- Top-level function to orchestrate ---
-# (Keep apply_unified_diff as it was in the previous correct version)
 def apply_unified_diff(diff_text, original_content, target_filename="target_system.py"):
-    edits = find_diffs(diff_text) # Uses the new find_diffs
+    edits = find_diffs(diff_text)
     if not edits:
         print("No diff hunks found in the provided text.")
         return original_content
@@ -94,10 +81,9 @@ def apply_unified_diff(diff_text, original_content, target_filename="target_syst
     seen_hunks = set()
     target_file_path = Path(target_filename)
 
-    print(f"Found {total_hunks} potential hunks.") # Add log
+    print(f"Found {total_hunks} potential hunks.")
 
     for i, (_, raw_hunk) in enumerate(edits):
-        # Ensure raw_hunk is not empty before proceeding
         if not raw_hunk:
              print(f"Skipping potentially empty hunk {i+1}/{total_hunks}")
              continue

@@ -222,7 +222,9 @@ def build_system():
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
-            updated_messages.append(HumanMessage(content="You made no valid function calls."))
+            content = "You made no valid function calls." + (
+                " The diffs can only be applied using the ChangeCode tool — do NOT use markdown blocks!" if "```" in response else "")
+            updated_messages.append(HumanMessage(content=content))
     
         # Ending the design if the last test ran without errors (this does not check accuracy)
         design_completed = False

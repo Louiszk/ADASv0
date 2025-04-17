@@ -10,14 +10,10 @@ udiff_prompt = """
 - **NEVER generate large hunks** that attempt to modify multiple unrelated parts of the file simultaneously.
 
 For each snippet of code that needs to be changed, repeat the following:
- [context_before] -> See below for further instructions on context.
+ [context_before] -> Precede the context code with a ` ` empty space.
 - [old_code] -> Precede the old code with a `-` minus sign.
 + [new_code] -> Precede the new, replacement code with a `+` plus sign.
- [context_after] -> See below for further instructions on context.
-
-For instructions on [context_before] and [context_after]:
-    - By default, show 3 lines of code immediately above and 3 lines immediately below each change.
-    - Precede the context code with a ` ` empty space.
+ [context_after] -> Precede the context code with a ` ` empty space.
 
 - If you need to change code in two different locations, **use two separate `@@ @@` hunks.** Do *not* try to combine them into one large hunk with context lines spanning both areas.
 - Inside a small, targeted hunk, first show the context (` ` lines), then the lines to remove (`-` lines), then the lines to add (`+` lines).
