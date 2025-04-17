@@ -23,9 +23,9 @@ def parse_decorator_tool_calls(text):
     }
     
     # Extract code blocks
-    code_blocks = re.findall(r'^```(?:python)?\s*\n(.*?)\n```$', text, re.DOTALL | re.MULTILINE)
+    code_blocks = re.findall(r'^```(.*?)\n```', text, re.DOTALL | re.MULTILINE)
     if not code_blocks:
-        code_blocks = [text]
+        print("No code blocks found!")
     
     for block in code_blocks:
         lines = block.split('\n')
