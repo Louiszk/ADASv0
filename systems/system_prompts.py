@@ -1,17 +1,48 @@
-file_content_prompt = """
-The ChangeCode tool expects the complete file_content as a single string. 
-The content you provide will completely replace the existing content of the target file.
-Do not get lazy, do not remove important parts of the implementation.
-Do not use any placeholders.
+# Ideas from https://github.com/Aider-AI/aider/blob/main/aider/coders/udiff_prompts.py
+# and https://cookbook.openai.com/examples/gpt4-1_prompting_guide
+udiff_prompt = """
+- Generate diffs similar to `diff -U0`.
+- Start *each* block of changes (hunk) with a `@@ @@` line.
+- **Do not** include file paths (`--- a/file`, `+++ b/file`).
+- **Do not** include timestamps or line numbers in the `@@ @@` line.
 
-Make sure your file includes:
-- All necessary imports at the top
-- class AgentState and initialization of StateGraph
-- All tool, node and edge configurations
-- Entry/exit point configurations
-- Proper indentation and formatting
+- Each diff hunk (a block starting with `@@ @@`) MUST address only **one specific, localized change**.
+- **NEVER generate large hunks** that attempt to modify multiple unrelated parts of the file simultaneously.
 
-The user's system expects a fully functional file that can run without errors.
+For each snippet of code that needs to be changed, repeat the following:
+ [context_before] -> Precede the context code with a ` ` empty space.
+- [old_code] -> Precede the old code with a `-` minus sign.
++ [new_code] -> Precede the new, replacement code with a `+` plus sign.
+ [context_after] -> Precede the context code with a ` ` empty space.
+
+- If you need to change code in two different locations, **use two separate `@@ @@` hunks.** Do *not* try to combine them into one large hunk with context lines spanning both areas.
+- Never use context lines between the [old_code] and the [new_code].
+
+- Correct 4-space Python indentation is crucial for all lines.
+- Ensure the context (` `) lines and removed (`-`) lines **exactly match** the current code, including indentation and whitespace.
+- Always check the *current* code provided to you before generating a diff to avoid duplication or referencing code that no longer exists.
+
+Think carefully about the precise context needed for *each individual change* and create a separate `@@ @@` hunk for it. This is the most reliable way to ensure your changes apply correctly.
+
+# CORRECT Example:
+@@ @@
+     # Define state attributes for the system
+     class AgentState(TypedDict):
+         messages: List[Any]
++        attr1: str
++        attr2: float
+ 
+     # Initialize graph with state
+     graph = StateGraph(AgentState)
+@@ @@
+     graph = StateGraph(AgentState)
+     tools = {}
+     # ===== Tool Definitions =====
+-    # No tools defined yet
++    def my_tool(input: str) -> str:
++        # ... tool logic ...
++        return "result"
++    tools["my_tool"] = tool(runnable=my_tool, name_or_callable="my_tool")
 """
 
 chain_of_thought = """
@@ -130,8 +161,9 @@ graph.add_conditional_edges("SourceNode", router_function)
 - State is accessible to all components throughout execution
 
 ### Using the ChangeCode tool:
-The ChangeCode tool allows you to modify the target system file.
-''' + file_content_prompt + '''
+The ChangeCode tool allows you to modify the target system file using unified diffs.
+The diffs can only be applied using the ChangeCode tool — do NOT use markdown blocks.
+''' + udiff_prompt + '''
 
 Analyze the problem statement to identify key requirements, constraints and success criteria.
 

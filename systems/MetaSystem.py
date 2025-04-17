@@ -11,6 +11,7 @@ from tqdm import tqdm
 import traceback
 import re
 import io
+import os
 import json
 import contextlib
 import sys
@@ -75,7 +76,7 @@ def build_system():
                 state: A json string with state attributes e.g. '{"messages": ["Test Input"], "attr2": [3, 5]}'
         """
         all_outputs = []
-        error_message = None
+        error_message = ""
         state = json.loads(state)
     
         try:
@@ -125,21 +126,50 @@ def build_system():
     tools["TestSystem"] = tool(runnable=test_system, name_or_callable="TestSystem")
 
     # Tool: ChangeCode
-    # Description: Updates the target system file with the provided content
-    def change_code(file_content: str) -> str:
+    # Description: Modifies the target system file using a diff
+    def change_code(diff: str) -> str:
         """
-            Updates the target system file with the provided content.
-                file_content: The complete content to write to the target system file.
+            Modifies the target system file using a unified diff.
+                diff: A unified diff string representing the changes to make to the target system file, consisting of one or more hunks.
         """
         try:
-            with open(target_system_file, 'w') as f:
-                f.write(file_content)
-            print("Successfully updated the system file.")
-            return "Successfully updated the system file."
-        except Exception as e:
-            error_msg = f"Error updating system file: {repr(e)}"
-            print(error_msg)
+            from agentic_system.udiff import apply_unified_diff, SearchTextNotUnique
+
+            if "+def build_system()" in diff or "-def build_system()" in diff:
+                return "Error: Modifications to build_system() function signature are not allowed."
+            if not diff or not diff.strip():
+                return "Error: Received an empty diff string."
+
+
+            with open(target_system_file, 'r') as f:
+                original_content = f.read()
+
+            modified_content, applied_count, total_count = apply_unified_diff(
+                diff_text=diff,
+                original_content=original_content,
+                target_filename=target_system_file
+            )
+
+            if modified_content != original_content:
+                with open(target_system_file, 'w') as f:
+                    f.write(modified_content)
+
+            if applied_count == total_count and total_count > 0:
+                return f"Successfully applied all {applied_count} diff hunks to the system."
+            elif total_count == 0:
+                return "No applicable diff hunks found in the input."
+            else:
+                return f"Applied {applied_count}/{total_count} hunks. Some hunks were skipped as they resulted in no change."
+
+
+        except ValueError as e:
+            error_msg = f"Error applying diff:\n{str(e)}"
+            error_msg += "\nNo changes were saved to the file. Please provide a corrected diff."
             return error_msg
+        except ImportError as e:
+            return f"Error: Failed to import udiff components. {str(e)}"
+        except Exception as e:
+            return f"Unexpected error in ChangeCode tool: {repr(e)}"
 
     tools["ChangeCode"] = tool(runnable=change_code, name_or_callable="ChangeCode")
 
@@ -151,6 +181,8 @@ def build_system():
         """
         return "Ending the design process..."
 
+    
+
     tools["EndDesign"] = tool(runnable=end_design, name_or_callable="EndDesign")
 
     # Register tools with LargeLanguageModel class
@@ -161,7 +193,7 @@ def build_system():
     def meta_agent_function(state: Dict[str, Any]) -> Dict[str, Any]:  
         llm = LargeLanguageModel(temperature=0.2, wrapper="google", model_name="gemini-2.0-flash")
         llm.bind_tools(list(tools.keys()))
-        
+
         context_length = 8*2 # even
         messages = state.get("messages", [])
         iteration = len([msg for msg in messages if isinstance(msg, AIMessage)])
@@ -191,15 +223,15 @@ def build_system():
             response.content = "I will call the necessary tools."
 
         tool_messages, tool_results = execute_tool_calls(response)
-    
-        # Update messages with the response and tool messages
+
         updated_messages = messages + [response]
         if tool_messages:
             updated_messages.extend(tool_messages)
         else:
-            updated_messages.append(HumanMessage(content="You made no valid function calls."))
-
-            
+            content = "You made no valid function calls." + (
+                " The diffs can only be applied using the ChangeCode tool — do NOT use markdown blocks!" if "```" in response else "")
+            updated_messages.append(HumanMessage(content=content))
+    
         # Ending the design if the last test ran without errors (this does not check accuracy)
         design_completed = False
         if tool_results and 'EndDesign' in tool_results and "Ending the design process" in str(tool_results['EndDesign']):

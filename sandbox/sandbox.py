@@ -220,6 +220,8 @@ def setup_sandbox_environment(session, reinstall=False):
     required_files = [
         ("agentic_system/large_language_model.py", "/sandbox/workspace/agentic_system/large_language_model.py"),
         ("agentic_system/materialize.py", "/sandbox/workspace/agentic_system/materialize.py"),
+        ("agentic_system/search_replace.py", "/sandbox/workspace/agentic_system/search_replace.py"),
+        ("agentic_system/udiff_coder.py", "/sandbox/workspace/agentic_system/udiff_coder.py"),
         ("agentic_system/udiff.py", "/sandbox/workspace/agentic_system/udiff.py"),
         ("agentic_system/target_system_template.py", "/sandbox/workspace/agentic_system/target_system_template.py"),
         ("systems/system_prompts.py", "/sandbox/workspace/systems/system_prompts.py"),
@@ -241,7 +243,8 @@ def setup_sandbox_environment(session, reinstall=False):
             "langgraph==0.3.5", 
             "langchain_openai==0.3.8",
             "langchain_google_genai==2.0.11",
-            "python-dotenv==1.0.1"
+            "python-dotenv==1.0.1",
+            "diff-match-patch"
         ]
         session.execute_command(f"pip install {' '.join(dependencies)}")
     
